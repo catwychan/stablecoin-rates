@@ -1,0 +1,52 @@
+name: Refresh rates and publish
+
+on:
+  schedule:
+    - cron: "7 */4 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: ["last_run.txt", "README.md"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch rates
+        run: |
+          python3 fetch_rates.py | tee run.log
+          if grep -q '^FAILED' run.log; then
+            echo "A data source failed - keeping the previously published data."
+            exit 1
+          fi
+      - name: Assemble site
+        run: |
+          mkdir _site
+          cp index.html rates.json history.json _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Record the run (keeps the schedule active)
+        continue-on-error: true
+        run: |
+          date -u +%Y-%m-%dT%H:%M:%SZ > last_run.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add last_run.txt
+          git commit -m "Refresh $(cat last_run.txt)" && git push
