@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>稳定币借贷利率</title>
+<meta name="description" content="Aave、Morpho、Spark、Sky、Venus、Kamino、Fluid 和 Jupiter Lend 上稳定币的借款利率、借出体量和 90 天走势，每 4 小时更新。">
+<style>
+  :root {
+    --color-fg: #1c1d22; --color-fg-muted: #666a73; --color-bg: #f6f6f4; --color-panel: #ffffff;
+    --color-border-line: #e2e2de; --color-ok: #1a7f4b; --color-warn: #b26a00; --color-bad: #c0392b;
+    --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    --font-anthropic-serif: Georgia, "Songti SC", "Noto Serif CJK SC", serif;
+    --cds-font-size-caption: 12.5px; --cds-font-size-body: 14px; --cds-font-size-heading: 17px; --cds-font-size-title: 30px;
+    --cds-font-weight-medium: 600;
+    --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 16px; --cds-gap-xl: 32px;
+    --cds-pad-xs: 4px; --cds-pad-sm: 6px; --cds-pad-md: 12px; --cds-pad-lg: 18px; --cds-pad-xl: 24px;
+    --cds-radius: 10px;
+    --cds-chart-grid: #ececE8; --cds-chart-axis: #c9c9c4; --cds-chart-reference: #9a9a94; --cds-chart-muted: #b9b9b3;
+    --cds-text-secondary: #666a73; --cds-surface-popover: #ffffff; --cds-border: #d6d6d1;
+    --cds-shadow-popover: 0 4px 16px rgba(0, 0, 0, .14);
+    --s1: #2f6fde; --s2: #e0672b; --s3: #1f9d6b; --s4: #9547d6; --s5: #c79a12; --s6: #1aa7c4; --s7: #d83d77; --s8: #6b7280;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --color-fg: #ececf0; --color-fg-muted: #a0a3ad; --color-bg: #131417; --color-panel: #1c1d22;
+      --color-border-line: #2e3038;
+      --cds-chart-grid: #2a2c33; --cds-chart-axis: #4a4d57; --cds-chart-reference: #70737d; --cds-chart-muted: #5a5d66;
+      --cds-text-secondary: #a0a3ad; --cds-surface-popover: #24262c; --cds-border: #3a3d46;
+      --cds-shadow-popover: 0 4px 18px rgba(0, 0, 0, .5);
+      --s1: #6c9dff; --s2: #ff9156; --s3: #4cc994; --s4: #bd84f5; --s5: #e6bf45; --s6: #4fcbe6; --s7: #f570a3; --s8: #a3a8b3;
+    }
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); line-height: 1.45; }
+  #dash-root { max-width: 1120px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+  .lr { display: flex; flex-direction: column; gap: var(--cds-gap-xl); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+  .lr-head { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+  .lr-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .lr-take { font-size: var(--cds-font-size-heading); margin: 0; max-width: 46em; line-height: 1.5; }
+  .lr-take b { font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .lr-cap { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; line-height: 1.5; max-width: 60em; }
+  .lr-sec { display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+  .lr-h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .lr-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+
+  .lr-vol { min-width: 640px; }
+  .lr-vol td.lr-asset { font-weight: var(--cds-font-weight-medium); }
+  .lr-vol td.lr-amt { text-align: left; min-width: 190px; }
+  .lr-vol tr.lr-charted td { font-weight: 700; color: var(--color-fg); }
+  .lr-vol tr.lr-charted .lr-amt-num { font-weight: 700; }
+  .lr-amt-in { display: flex; align-items: center; gap: var(--cds-gap-sm); }
+  .lr-amt-num { flex: 0 0 4.6em; text-align: right; font-weight: var(--cds-font-weight-medium); }
+  .lr-amt-track { flex: 1 1 auto; height: 12px; min-width: 60px; }
+  .lr-amt-fill { height: 100%; border-radius: 0 3px 3px 0; min-width: 2px; }
+  .lr-tip { position: absolute; z-index: 2; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); font-size: var(--cds-font-size-caption); line-height: 1.6; max-width: 300px; font-variant-numeric: tabular-nums; }
+  .lr-tip-name { font-weight: var(--cds-font-weight-medium); color: var(--color-fg); }
+  .lr-tip-line { color: var(--cds-text-secondary); }
+
+  .lr-scroll { overflow-x: auto; }
+  .lr-table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
+  .lr-table th { font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); text-align: right; padding: 6px 10px; white-space: nowrap; border-bottom: 1px solid var(--color-border-line); }
+  .lr-table td { text-align: right; padding: 7px 10px; white-space: nowrap; border-bottom: 1px solid var(--color-border-line); }
+  .lr-table tr:last-child td { border-bottom: 0; }
+  .lr-table th:first-child, .lr-table td:first-child { text-align: left; padding-left: 0; }
+  .lr-table th:last-child, .lr-table td:last-child { padding-right: 0; }
+  .lr-table td.lr-strong { font-weight: var(--cds-font-weight-medium); }
+  .lr-table td.lr-text { text-align: left; color: var(--color-fg-muted); }
+  .lr-table th.lr-text { text-align: left; }
+  .lr-fail { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .lr-lines { display: flex; flex-direction: column; gap: var(--cds-gap-md); min-height: 380px; }
+  .lr-legend { display: flex; flex-wrap: wrap; gap: 4px var(--cds-gap-lg); }
+  .lr-legend-item { display: flex; align-items: center; gap: 6px; font-size: var(--cds-font-size-caption); }
+  .lr-legend-sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; flex: none; }
+  .lr-legend-val { font-variant-numeric: tabular-nums; font-weight: var(--cds-font-weight-medium); }
+  .lr-lines-plot { position: relative; touch-action: pan-y; }
+  .lr-lines-plot svg { display: block; }
+  .lr-series { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+  .lr-series.lr-bold { stroke-width: 3.4; }
+  .lr-legend-item.lr-bold .lr-legend-name { font-weight: var(--cds-font-weight-medium); }
+  .lr-legend-item.lr-bold .lr-legend-sw { height: 5px; }
+  .lr-grid { stroke: var(--cds-chart-grid); stroke-width: 1; }
+  .lr-guide { stroke: var(--cds-chart-axis); stroke-width: 1; }
+  .lr-tick { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); font-variant-numeric: tabular-nums; }
+  .lr-tip-row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .lr-tip-val { margin-left: auto; padding-left: 10px; color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+  .lr-trends { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--cds-gap-md); min-height: 300px; }
+  .lr-trend { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+  .lr-trend-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-sm); }
+  .lr-trend-name { font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); overflow-wrap: anywhere; min-width: 0; }
+  .lr-trend-now { font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; font-weight: var(--cds-font-weight-medium); white-space: nowrap; }
+  .lr-trend-plot { position: relative; height: 84px; touch-action: pan-y; }
+  .lr-trend-plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .lr-trend-line { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+  .lr-trend-area { opacity: .12; stroke: none; }
+  .lr-trend-avg { stroke: var(--cds-chart-reference); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; fill: none; }
+  .lr-trend-dot { position: absolute; width: 7px; height: 7px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 0 2px var(--color-panel); }
+  .lr-trend-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px var(--cds-gap-sm); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+  [data-dash-source-state=refreshing] { opacity: .5; }
+</style>
+</head>
+<body>
+<div id="dash-root">
+<div class="lr">
+  <header class="lr-head">
+    <h1 class="lr-title" id="top">稳定币借贷利率</h1>
+    <p class="lr-take">主要市场里，现在借稳定币最便宜的是 <b data-draw="cheap-name">—</b>，年化 <b data-draw="cheap-rate" data-source="rates" data-field="borrow_apy">—</b>；最贵的是 <b data-draw="dear-name">—</b>，年化 <b data-draw="dear-rate" data-source="rates" data-field="borrow_apy">—</b>。</p>
+    <p class="lr-cap">数据抓取时间：<span data-draw="asof" data-source="rates" data-field="fetched_at">—</span>（你的本地时间）。利率均为浮动年化 APY，随资金利用率实时变化。</p>
+  </header>
+
+  <section class="lr-sec" id="compare">
+    <h2 class="lr-h2">可以用 BTC 抵押借的稳定币市场，按借出体量从多到少</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table lr-vol" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="asset">稳定币</th>
+          <th data-field="market" class="lr-text">平台 · 市场</th>
+          <th class="lr-text">已借出</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th>还可借</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="volume" data-group="totals"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">每一行是一个单独的市场，有它自己的利率，不做合并。Aave V3、Aave V4、Spark、Venus、Fluid 和 Kamino 的 SOL/BTC Market 是共用利率的池子，BTC 和其他资产都能抵押，借出超过 1,000 万美元的就列出。Morpho 和 Jupiter Lend 上每一对抵押品和稳定币都是独立市场，这里只放 BTC 抵押（WBTC、cbBTC、kBTC 等）且借出超过 500 万美元的。还可借是现在剩余、可以马上借走的金额。Jupiter Lend 不提供利用率。</p>
+  </section>
+
+  <section class="lr-sec" id="compare-trend">
+    <h2 class="lr-h2">主要市场过去 90 天的借款利率</h2>
+    <div class="lr-card">
+      <div class="lr-lines" data-draw="compare-lines" data-source="history"></div>
+    </div>
+    <p class="lr-cap">图里的 7 个市场在上面的表格里用粗体标出。每天一个点，是当天的平均借款年化利率；图例里的数字是最近一天的。移到图上可以看某一天各市场的利率。</p>
+  </section>
+
+  <section class="lr-sec" id="compare-other">
+    <h2 class="lr-h2">其他抵押品的稳定币市场</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table lr-vol" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="asset">稳定币</th>
+          <th data-field="market" class="lr-text">平台 · 市场</th>
+          <th class="lr-text">已借出</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th>还可借</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="volume" data-group="totals_other"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">抵押品不是 BTC 的独立市场：Morpho（PRIME、PT、sUSDe、USDe、wstETH 等）、Jupiter Lend（JLP、SOL 等）和 Kamino 的专项市场，借出超过 5,000 万美元的。条形长度和上一张表用同一把尺子，可以直接比较。</p>
+  </section>
+
+  <section class="lr-sec" id="trend">
+    <h2 class="lr-h2">过去 90 天借款利率走势</h2>
+    <div class="lr-trends" data-draw="trends" data-source="history"></div>
+    <p class="lr-cap">上面两张表格里的每个市场一张小图，按借出体量从多到少排列；另外加一张 Sky 储蓄利率，它是存款利率，不是借款利率。每天一个点，是当天的平均借款年化利率；右上角是最近一天的数字，虚线是 90 天平均。每张小图的纵轴都从 0 到自己的最高点，所以不同小图之间要看数字而不是看线的高低。上线不足 90 天的市场曲线会短一些。Jupiter Lend 的接口不提供历史利率，所以没有它的走势图。</p>
+</section>
+
+  <section class="lr-sec" id="aave-v3">
+    <h2 class="lr-h2">Aave V3 · Ethereum Core</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="supply_apy">存款利率</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="aave_v3"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">同一个池子里，不管抵押 WBTC、cbBTC 还是 ETH，借同一种稳定币的利率都一样。只列出借款规模超过 100 万美元的稳定币。</p>
+  </section>
+
+  <section class="lr-sec" id="aave-v4">
+    <h2 class="lr-h2">Aave V4 · Ethereum</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">Hub · 资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="supply_apy">存款利率</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="aave_v4"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">这里是各 Hub 的基础借款利率。V4 会按借款人抵押品的质量再加一层风险溢价，所以实际成本可能略高于表中数字。</p>
+  </section>
+
+  <section class="lr-sec" id="sky">
+    <h2 class="lr-h2">Sky · 储蓄利率</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">产品</th>
+          <th data-field="supply_apy">存款年化</th>
+          <th data-field="tvl_musd">存入规模（百万美元）</th>
+          <th data-field="collateral" class="lr-text">说明</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="sky_savings"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">Sky Savings Rate（SSR）由 Sky 治理设定，不随利用率浮动，调整时才会变。</p>
+  </section>
+
+  <section class="lr-sec" id="spark">
+    <h2 class="lr-h2">Spark · Ethereum（Sky 生态的借贷市场）</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="supply_apy">存款利率</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="spark"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">在 Sky 生态里用比特币借稳定币走的是 SparkLend：抵押 cbBTC、WBTC 或 LBTC，借出这些稳定币，同一个池子里利率不分抵押品。Sky 原生 Vault 的 WBTC 借款已不到 200 万美元，稳定费在 15% 以上，所以没有列入。</p>
+  </section>
+
+  <section class="lr-sec" id="morpho-btc">
+    <h2 class="lr-h2">Morpho · BTC 抵押借稳定币</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">抵押品 / 借出资产</th>
+          <th data-field="chain" class="lr-text">链</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="borrow_apy_7d">7 日平均</th>
+          <th data-field="lltv_pct">LLTV</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="morpho_btc"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">Ethereum 和 Base 上 BTC 抵押（WBTC、cbBTC、kBTC、LBTC 等）按借款规模排名前 10 的市场。LLTV 是清算线，即贷款价值比到这个数就会被清算。</p>
+  </section>
+
+  <section class="lr-sec" id="venus">
+    <h2 class="lr-h2">Venus · BNB Chain Core Pool</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="supply_apy">存款利率</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="venus"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">只列出借款规模超过 100 万美元的稳定币，不含 XVS 奖励。</p>
+  </section>
+
+  <section class="lr-sec" id="kamino">
+    <h2 class="lr-h2">Kamino · Solana</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产 · 市场</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="supply_apy">存款利率</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+          <th data-field="utilization_pct">利用率</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="kamino"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">Kamino 分成多个互相隔离的市场，各有各的利率。能抵押 BTC 的是 SOL/BTC Market。按借款规模列出前 14 个稳定币储备。</p>
+  </section>
+
+  <section class="lr-sec" id="fluid">
+    <h2 class="lr-h2">Fluid · Ethereum</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="supply_apy">存款利率</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+          <th data-field="utilization_pct">利用率</th>
+          <th data-field="collateral" class="lr-text">说明</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="fluid"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">Fluid 每种稳定币在流动性层只有一个借款利率，所有 Vault（包括 WBTC、cbBTC 抵押的）借同一种币付同样的利率。只统计 Ethereum 主网。</p>
+  </section>
+
+  <section class="lr-sec" id="jupiter">
+    <h2 class="lr-h2">Jupiter Lend · Solana</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">抵押品 / 借出资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="lltv_pct">清算线</th>
+          <th data-field="borrowed_musd">已借出（百万美元）</th>
+          <th data-field="liquidity_musd">可借流动性（百万美元）</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="jupiter"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">按借款规模列出前 14 个借出稳定币的 Vault。目前 BTC 抵押的 Vault 规模还很小，最大的是 cbBTC / USDC。</p>
+  </section>
+
+  <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API。这是定时抓取的快照，不是逐块实时数据。</p>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(() => {
+  // Minimal stand-in for the dashboard runtime: loads the two data files and reruns the drawings.
+  const store = { rates: { status: 'loading', data: [] }, history: { status: 'loading', data: [] } };
+  const draws = [];
+  let scripted = false;
+  const runAll = () => {
+    if (!scripted) return;
+    draws.forEach(([name, fn]) => document.querySelectorAll('[data-draw="' + name + '"]').forEach((el) => {
+      try { fn(el); } catch (e) { console.error(name, e); }
+    }));
+  };
+  window.dash = {
+    colors: ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)'],
+    data: (id) => store[id] || { status: 'missing', data: [] },
+    draw: (name, fn) => { if (fn) draws.push([name, fn]); else runAll(); },
+    onData: (fn) => fn(),
+    _start: () => { scripted = true; runAll(); },
+  };
+  const load = (id) => fetch(id + '.json?t=' + Math.floor(Date.now() / 6e5), { cache: 'no-store' })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((d) => { store[id] = { status: 'ok', data: d }; })
+    .catch(() => { store[id] = { status: 'error', data: [] }; })
+    .then(runAll);
+  load('rates'); load('history');
+  let timer = 0, width = window.innerWidth;
+  window.addEventListener('resize', () => {
+    if (window.innerWidth === width) return;
+    width = window.innerWidth;
+    clearTimeout(timer); timer = setTimeout(runAll, 150);
+  });
+})();
+</script>
+<script>
+
+  const pct = (v) => (v == null ? '—' : v.toFixed(2) + '%');
+  const pct1 = (v) => (v == null ? '—' : v.toFixed(1) + '%');
+  const musd = (v) => (v == null ? '—' : d3.format(',.1f')(v));
+  const FORMAT = { borrow_apy: pct, supply_apy: pct, borrow_apy_7d: pct, lltv_pct: pct1, utilization_pct: pct1, borrowed_musd: musd, liquidity_musd: musd, tvl_musd: musd };
+  const TEXT = new Set(['chain', 'collateral']);
+
+  const rates = () => {
+    const g = dash.data('rates');
+    return { status: g.status, rows: g.status === 'ok' && Array.isArray(g.data) ? g.data : [] };
+  };
+  const label = (r) => (r.group.startsWith('morpho') ? `Morpho · ${r.market}` : `${r.protocol} · ${r.market}`);
+  const headline = () => rates().rows.filter((r) => r.headline && r.borrow_apy != null).sort((a, b) => a.borrow_apy - b.borrow_apy);
+
+  const word = (pick, text, marked) => (el) => {
+    const h = headline();
+    const r = h.length ? pick(h) : null;
+    el.textContent = r ? text(r) : '—';
+    if (marked) { if (r) el.dataset.where = 'id=' + encodeURIComponent(r.id); else delete el.dataset.where; }
+  };
+  const first = (h) => h[0], last = (h) => h[h.length - 1];
+  const named = (r) => label(r) + (r.chain === 'Ethereum' ? '' : `（${r.chain}）`);
+  dash.draw('cheap-name', word(first, named, false));
+  dash.draw('cheap-rate', word(first, (r) => pct(r.borrow_apy), true));
+  dash.draw('dear-name', word(last, named, false));
+  dash.draw('dear-rate', word(last, (r) => pct(r.borrow_apy), true));
+
+  dash.draw('asof', (el) => {
+    const { rows } = rates();
+    const t = rows.map((r) => r.fetched_at).filter(Boolean).sort().pop();
+    el.textContent = t ? d3.timeFormat('%Y-%m-%d %H:%M')(new Date(t)) : '—';
+  });
+
+  dash.draw('rows', (tbody) => {
+    const { status, rows } = rates();
+    const table = tbody.closest('table');
+    const fields = table ? [...table.querySelectorAll('thead th')].map((th) => th.dataset.field) : [];
+    const mine = rows.filter((r) => r.group === tbody.dataset.group);
+    if (!mine.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = fields.length || 1;
+      td.className = 'lr-fail';
+      td.style.textAlign = 'left';
+      td.textContent = status === 'error' ? '加载失败' : status === 'ok' ? '暂无数据' : '—';
+      tr.append(td);
+      tbody.replaceChildren(tr);
+      return;
+    }
+    tbody.replaceChildren(...mine.map((r) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = encodeURIComponent(r.id);
+      fields.forEach((f, i) => {
+        const td = document.createElement('td');
+        td.textContent = FORMAT[f] ? FORMAT[f](r[f]) : (r[f] ?? '—');
+        if (f === 'borrow_apy') td.className = 'lr-strong';
+        if (TEXT.has(f)) td.className = 'lr-text';
+        tr.append(td);
+      });
+      return tr;
+    }));
+  });
+
+  const amount = (v) => (v >= 1000 ? '$' + d3.format(',.2f')(v / 1000) + 'B' : '$' + d3.format(v >= 100 ? ',.0f' : ',.1f')(v) + 'M');
+  const fail = (el, status) => {
+    const p = document.createElement('p');
+    p.className = 'lr-fail';
+    p.textContent = status === 'error' ? '加载失败' : '—';
+    el.replaceChildren(p);
+  };
+  const line = (cls, text) => { const d = document.createElement('div'); d.className = cls; d.textContent = text; return d; };
+
+  dash.draw('volume', (tbody) => {
+    const { status, rows } = rates();
+    const all = rows.filter((r) => (r.group === 'totals' || r.group === 'totals_other') && r.borrowed_musd != null);
+    const h = all.filter((r) => r.group === (tbody.dataset.group || 'totals')).sort((a, b) => b.borrowed_musd - a.borrowed_musd);
+    if (!h.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.className = 'lr-fail';
+      td.style.textAlign = 'left';
+      td.textContent = status === 'error' ? '加载失败' : status === 'ok' ? '暂无数据' : '—';
+      tr.append(td);
+      tbody.replaceChildren(tr);
+      return;
+    }
+    const max = d3.max(all, (r) => r.borrowed_musd) || 1;
+    const cell = (text, cls) => { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; return td; };
+    tbody.replaceChildren(...h.map((r) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = encodeURIComponent(r.id);
+      if (COMPARE.some(([id]) => id === r.series)) tr.className = 'lr-charted';   // the markets drawn in the 90-day chart
+      const amt = document.createElement('td');
+      amt.className = 'lr-amt';
+      const inner = document.createElement('div');
+      inner.className = 'lr-amt-in';
+      const track = document.createElement('div');
+      track.className = 'lr-amt-track';
+      const fill = document.createElement('div');
+      fill.className = 'lr-amt-fill';
+      fill.style.width = (100 * r.borrowed_musd / max) + '%';
+      fill.style.background = dash.colors[0];
+      track.append(fill);
+      inner.append(line('lr-amt-num', amount(r.borrowed_musd)), track);
+      amt.append(inner);
+      tr.append(
+        cell(r.asset, 'lr-asset'),
+        cell(r.market, 'lr-text'),
+        amt,
+        cell(pct(r.borrow_apy), 'lr-strong'),
+        cell(r.liquidity_musd == null ? '—' : amount(r.liquidity_musd)),
+        cell(pct1(r.utilization_pct))
+      );
+      return tr;
+    }));
+  });
+
+  // The markets drawn in the 90-day comparison chart, in legend order (chosen by the dashboard's owner).
+  const COMPARE = [
+    ['aave-v3:usdc', 'Aave V3 Core · USDC'],
+    ['aave-v3:usdt', 'Aave V3 Core · USDT'],
+    ['morpho:8453:0x9103c3b4e8', 'Morpho · cbBTC / USDC (Base)', true],   // true = drawn bold
+    ['venus:usdt', 'Venus · USDT', true],
+    ['fluid:usdt', 'Fluid · USDT'],
+    ['fluid:usdc', 'Fluid · USDC'],
+    ['kamino:7u3heh:usdc', 'Kamino · USDC'],
+  ];
+  const Y_RANGE = [3, 10];   // vertical axis of the comparison chart, in % (chosen by the dashboard's owner)
+  dash.draw('compare-lines', (el) => {
+    const g = dash.data('history');
+    const rows = g.status === 'ok' && Array.isArray(g.data) ? g.data : [];
+    const dateOf = d3.utcParse('%Y-%m-%d'), md = d3.utcFormat('%-m月%-d日');
+    const palette = dash.colors && dash.colors.length ? dash.colors : ['currentColor'];
+    const series = COMPARE.map(([id, name, bold], i) => ({
+      id, name, bold: !!bold, color: palette[i % palette.length], dashed: i >= palette.length,
+      pts: rows.filter((r) => r.series === id && r.borrow_apy != null).map((r) => ({ t: dateOf(r.date), v: r.borrow_apy })).sort((a, b) => a.t - b.t),
+    })).filter((s) => s.pts.length > 1);
+    if (!series.length) return fail(el, g.status);
+    const all = series.flatMap((s) => s.pts);
+    const top = d3.max(all, (p) => p.v), low = d3.min(all, (p) => p.v);
+    const W = Math.max(280, el.clientWidth), H = 320, m = { l: 38, r: 10, t: 10, b: 24 };
+    const x = d3.scaleUtc(d3.extent(all, (p) => p.t), [m.l, W - m.r]);
+    const y = d3.scaleLinear(Y_RANGE, [H - m.b, m.t]);
+    const legend = document.createElement('div');
+    legend.className = 'lr-legend';
+    series.forEach((s) => {
+      const item = document.createElement('div');
+      item.className = 'lr-legend-item' + (s.bold ? ' lr-bold' : '');
+      const sw = document.createElement('span');
+      sw.className = 'lr-legend-sw';
+      sw.style.background = s.color;
+      if (s.dashed) sw.style.opacity = '.55';
+      const last = s.pts[s.pts.length - 1];
+      item.append(sw, line('lr-legend-name', s.name), line('lr-legend-val', pct(last.v)));
+      legend.append(item);
+    });
+    const plot = document.createElement('div');
+    plot.className = 'lr-lines-plot';
+    const svg = d3.create('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('role', 'img').attr('aria-label', '过去 90 天借款年化利率对比：' + series.map((s) => `${s.name} 最新 ${pct(s.pts[s.pts.length - 1].v)}`).join('，'));
+    const clip = 'lr-clip-' + Math.round(W);
+    svg.append('clipPath').attr('id', clip).append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b);
+    const ticks = y.ticks(7);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'lr-grid')
+      .attr('x1', m.l).attr('x2', W - m.r).attr('y1', (d) => y(d)).attr('y2', (d) => y(d));
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('class', 'lr-tick')
+      .attr('x', m.l - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text((d) => d + '%');
+    const xt = x.ticks(W < 520 ? 3 : 6);
+    svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'lr-tick')
+      .attr('x', (d) => x(d)).attr('y', H - 6).attr('text-anchor', 'middle').text((d) => md(d));
+    const path = d3.line().x((p) => x(p.t)).y((p) => y(p.v));
+    const lines = svg.append('g').attr('clip-path', `url(#${clip})`);
+    series.slice().sort((a, b) => a.bold - b.bold).forEach((s) => {   // bold lines last, so they sit on top
+      lines.append('path').attr('class', 'lr-series' + (s.bold ? ' lr-bold' : '')).attr('d', path(s.pts)).style('stroke', s.color)
+        .attr('stroke-dasharray', s.dashed ? '5 3' : null);
+    });
+    const guide = svg.append('line').attr('class', 'lr-guide').attr('y1', m.t).attr('y2', H - m.b).style('display', 'none');
+    const tip = document.createElement('div');
+    tip.className = 'lr-tip';
+    tip.hidden = true;
+    plot.append(svg.node(), tip);
+    const hover = (ev) => {
+      const box = plot.getBoundingClientRect();
+      const px = (ev.clientX - box.left) * (W / box.width);
+      const t = x.invert(Math.max(m.l, Math.min(W - m.r, px)));
+      const day = d3.utcDay.round(t);
+      const at = series.map((s) => {
+        const i = d3.bisector((p) => p.t).center(s.pts, day);
+        return { s, p: s.pts[i] };
+      }).filter((d) => d.p && Math.abs(d.p.t - day) < 2 * 864e5).sort((a, b) => b.p.v - a.p.v);
+      if (!at.length) return;
+      guide.attr('x1', x(day)).attr('x2', x(day)).style('display', null);
+      tip.replaceChildren(line('lr-tip-name', md(day)), ...at.map((d) => {
+        const r = document.createElement('div');
+        r.className = 'lr-tip-row';
+        const sw = document.createElement('span');
+        sw.className = 'lr-legend-sw';
+        sw.style.background = d.s.color;
+        r.append(sw, line('lr-tip-line', d.s.name), line('lr-tip-val', pct(d.p.v)));
+        return r;
+      }));
+      tip.hidden = false;
+      const cx = x(day) * (box.width / W);
+      const left = cx + 14 + tip.offsetWidth > box.width ? cx - 14 - tip.offsetWidth : cx + 14;
+      tip.style.left = Math.max(0, left) + 'px';
+      tip.style.top = '8px';
+    };
+    plot.addEventListener('pointermove', hover);
+    plot.addEventListener('pointerdown', hover);
+    plot.addEventListener('pointerleave', () => { tip.hidden = true; guide.style('display', 'none'); });
+    const note = document.createElement('p');
+    note.className = 'lr-cap';
+    note.hidden = top <= Y_RANGE[1] && low >= Y_RANGE[0];
+    note.textContent = `纵轴固定在 ${Y_RANGE[0]}% 到 ${Y_RANGE[1]}%，方便看清各条线的差别。超出这个范围的部分在图上被截断（期间最低 ${pct(low)}，最高 ${pct(top)}），移到对应日期可以看到实际数值。`;
+    el.replaceChildren(legend, plot, note);
+  });
+
+  dash.draw('trends', (el) => {
+    const g = dash.data('history');
+    const rows = g.status === 'ok' && Array.isArray(g.data) ? g.data : [];
+    if (!rows.length) return fail(el, g.status);
+    const groups = d3.groups(rows.filter((r) => r.borrow_apy != null), (r) => r.series)
+      .map(([, pts]) => pts.slice().sort((a, b) => d3.ascending(a.date, b.date)))
+      .filter((pts) => pts.length > 1)
+      .sort((a, b) => a[0].order - b[0].order);
+    const W = 300, H = 84, PAD = 4;
+    const svgEl = (tag) => document.createElementNS('http://www.w3.org/2000/svg', tag);
+    const dateOf = d3.utcParse('%Y-%m-%d'), md = d3.utcFormat('%-m月%-d日');
+    el.replaceChildren(...groups.map((pts) => {
+      const first = pts[0], last = pts[pts.length - 1];
+      const max = d3.max(pts, (p) => p.borrow_apy), min = d3.min(pts, (p) => p.borrow_apy), mean = d3.mean(pts, (p) => p.borrow_apy);
+      const x = d3.scaleLinear([0, pts.length - 1], [0, W]);
+      const y = d3.scaleLinear([0, max || 1], [H - 1, PAD]);
+      const card = document.createElement('div');
+      card.className = 'lr-trend';
+      const head = document.createElement('div');
+      head.className = 'lr-trend-head';
+      head.append(line('lr-trend-name', first.label), line('lr-trend-now', pct(last.borrow_apy)));
+      const plot = document.createElement('div');
+      plot.className = 'lr-trend-plot';
+      const svg = svgEl('svg');
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', `${first.label} 过去 ${pts.length} 天借款利率：最低 ${pct(min)}，最高 ${pct(max)}，平均 ${pct(mean)}，最新 ${pct(last.borrow_apy)}`);
+      const avg = svgEl('line');
+      avg.setAttribute('x1', 0); avg.setAttribute('x2', W); avg.setAttribute('y1', y(mean)); avg.setAttribute('y2', y(mean));
+      avg.setAttribute('class', 'lr-trend-avg');
+      const area = svgEl('path');
+      area.setAttribute('d', d3.area().x((p, i) => x(i)).y0(H).y1((p) => y(p.borrow_apy))(pts));
+      area.setAttribute('class', 'lr-trend-area');
+      area.style.fill = dash.colors[0];
+      const path = svgEl('path');
+      path.setAttribute('d', d3.line().x((p, i) => x(i)).y((p) => y(p.borrow_apy))(pts));
+      path.setAttribute('class', 'lr-trend-line');
+      path.style.stroke = dash.colors[0];
+      svg.append(area, avg, path);
+      const dot = document.createElement('div');
+      dot.className = 'lr-trend-dot';
+      dot.style.background = dash.colors[0];
+      const place = (i) => { dot.style.left = (100 * x(i) / W) + '%'; dot.style.top = (100 * y(pts[i].borrow_apy) / H) + '%'; };
+      place(pts.length - 1);
+      const tip = document.createElement('div');
+      tip.className = 'lr-tip';
+      tip.hidden = true;
+      plot.append(svg, dot, tip);
+      const hover = (ev) => {
+        const box = plot.getBoundingClientRect();
+        const i = Math.max(0, Math.min(pts.length - 1, Math.round((ev.clientX - box.left) / box.width * (pts.length - 1))));
+        place(i);
+        tip.replaceChildren(line('lr-tip-name', pct(pts[i].borrow_apy)), line('lr-tip-line', md(dateOf(pts[i].date))));
+        tip.hidden = false;
+        tip.style.left = Math.max(0, Math.min(box.width * i / (pts.length - 1) - tip.offsetWidth / 2, box.width - tip.offsetWidth)) + 'px';
+        tip.style.top = '0px';
+      };
+      plot.addEventListener('pointermove', hover);
+      plot.addEventListener('pointerdown', hover);
+      plot.addEventListener('pointerleave', () => { tip.hidden = true; place(pts.length - 1); });
+      const foot = document.createElement('div');
+      foot.className = 'lr-trend-foot';
+      foot.append(line('', `${md(dateOf(first.date))} ${pct(first.borrow_apy)}`), line('', `平均 ${pct(mean)}`), line('', `最低 ${pct(min)} · 最高 ${pct(max)}`));
+      card.append(head, plot, foot);
+      return card;
+    }));
+  });
+
+dash._start();
+</script>
+</body>
+</html>
