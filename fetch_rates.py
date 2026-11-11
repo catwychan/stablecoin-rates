@@ -10,6 +10,7 @@ Sources (all free, no key):
   Kamino (Solana) : api.kamino.finance
   Fluid (Ethereum) : api.fluid.instadapp.io
   Jupiter Lend (Solana) : lite-api.jup.ag
+  Binance VIP Loan : www.binance.com public bapi (optional source: skipped, not FAILED, when unreachable)
   Sky Savings Rate / stUSDS : info-sky.blockanalitica.com (+ yields.llama.fi/chart for SSR history)
 
 rates.json   one row per market, `group` =
@@ -465,6 +466,47 @@ def jupiter():
     return {"jupiter": table[:14]}, totals, []
 
 
+# ---------------------------------------------------------------- Binance VIP Loan (CeFi)
+BINANCE_COINS = ("USDT", "USDC", "USD1", "FDUSD")
+BINANCE_MAIN = ("USDT", "USDC")          # shown in the volume table and the 90-day chart
+
+
+def binance():
+    """Published flexible VIP Loan rate (simple APR, accrues hourly). Binance does not publish loan volumes."""
+    url = "https://www.binance.com/bapi/margin/v1/public/collateral/vip-loan/hourlyInterestRates"
+    hdr = {"content-type": "application/json", "accept": "application/json", "clienttype": "web",
+           "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"}
+    table, totals, hist = [], [], []
+    for coin in BINANCE_COINS:
+        body = json.dumps({"coin": coin, "startTime": (NOW_TS - (DAYS + 1) * 86400) * 1000, "endTime": NOW_TS * 1000}).encode()
+        r = json.load(urllib.request.urlopen(urllib.request.Request(url, data=body, headers=hdr), timeout=60))
+        data = r.get("data") or []
+        if not data:
+            if coin in BINANCE_MAIN:
+                raise RuntimeError(f"no data for {coin}: {str(r)[:120]}")
+            continue
+        pts = sorted((int(p["dateTimestamp"]), float(p["annualInterestRate"]) * 100) for p in data)
+        rate = pts[-1][1]
+        week = [v for t, v in pts if t >= (NOW_TS - 7 * 86400) * 1000]
+        series = f"binance:{coin}".lower()
+        main = coin in BINANCE_MAIN
+        r0 = row("binance", "Binance VIP Loan", "CeFi", coin, coin, "浮动利率，可用 BTC、ETH 等抵押，仅 VIP 用户", rate, None,
+                 None, None, None, "Binance", borrow7d=sum(week) / len(week) if week else None,
+                 headline=int(main), series=series)
+        table.append(r0)
+        if main:
+            t = dict(r0, group="totals", market="Binance VIP Loan", id="totals:" + series, headline=0)
+            totals.append(t)
+            days = {}
+            for ts, v in pts:
+                days.setdefault(day(ts / 1000), []).append(v)
+            hist += hist_rows(series, f"Binance VIP Loan · {coin}", "Binance VIP Loan", 0,
+                              [(d, sum(v) / len(v)) for d, v in days.items()])
+    return {"binance": table}, totals, hist
+
+
+OPTIONAL_SOURCES = {"Binance VIP Loan"}   # unreachable from some networks; never blocks a refresh
+
 PLATFORM_OF = {"Aave V3": "Aave V3", "Aave V4": "Aave V4", "Morpho": "Morpho", "Venus": "Venus"}
 
 
@@ -486,15 +528,16 @@ def load(path):
 
 def main():
     old, old_hist = load(OUT), load(HIST)
-    groups, totals, hist, failed = {}, [], [], []
+    groups, totals, hist, failed, skipped = {}, [], [], [], []
     for name, fn, table_groups in (("Aave V3", aave_v3, ["aave_v3"]), ("Aave V4", aave_v4, ["aave_v4"]),
                                    ("Morpho", morpho, ["morpho_btc", "morpho_top"]), ("Venus", venus, ["venus"]), ("Sky", sky, ["spark", "sky_savings"]), ("Kamino", kamino, ["kamino"]),
-                                   ("Fluid", fluid, ["fluid"]), ("Jupiter Lend", jupiter, ["jupiter"])):
+                                   ("Fluid", fluid, ["fluid"]), ("Jupiter Lend", jupiter, ["jupiter"]),
+                                   ("Binance VIP Loan", binance, ["binance"])):
         try:
             g, t, h = fn()
             groups.update(g)
         except Exception as e:  # keep the previous rows for this source
-            failed.append(f"{name}: {e}")
+            (skipped if name in OPTIONAL_SOURCES else failed).append(f"{name}: {e}")
             for tg in table_groups:
                 groups[tg] = [r for r in old if r.get("group") == tg]
             t = [r for r in old if r.get("group") in ("totals", "totals_other") and source_of(r.get("protocol", "")) == name]
@@ -505,7 +548,7 @@ def main():
         hist += h
     totals.sort(key=lambda r: -(r["borrowed_musd"] or 0))
     rows = totals + sum((groups.get(g, []) for g in ["aave_v3", "aave_v4", "spark", "sky_savings", "morpho_btc", "morpho_top", "venus",
-                                                                 "kamino", "fluid", "jupiter"]), [])
+                                                                 "kamino", "fluid", "jupiter", "binance"]), [])
     if not rows:
         sys.exit("all sources failed: " + "; ".join(failed))
     # history panels go in order of borrowed volume
@@ -520,10 +563,12 @@ def main():
     json.dump(hist, open(HIST, "w"), ensure_ascii=False, separators=(",", ":"))
     print(f"wrote {len(rows)} rows to {OUT} and {len(hist)} rows ({len(rank)} series) to {HIST} at {NOW}")
     for g in ["totals", "totals_other", "aave_v3", "aave_v4", "spark", "sky_savings", "morpho_btc", "morpho_top", "venus",
-              "kamino", "fluid", "jupiter"]:
+              "kamino", "fluid", "jupiter", "binance"]:
         print(f"  {g}: {sum(1 for r in rows if r['group'] == g)}")
     if failed:
         print("FAILED (kept old rows): " + "; ".join(failed))
+    if skipped:
+        print("SKIPPED optional source (old rows kept if any): " + "; ".join(skipped))
 
 
 if __name__ == "__main__":

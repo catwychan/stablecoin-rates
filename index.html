@@ -19,7 +19,7 @@
     --cds-chart-grid: #ececE8; --cds-chart-axis: #c9c9c4; --cds-chart-reference: #9a9a94; --cds-chart-muted: #b9b9b3;
     --cds-text-secondary: #666a73; --cds-surface-popover: #ffffff; --cds-border: #d6d6d1;
     --cds-shadow-popover: 0 4px 16px rgba(0, 0, 0, .14);
-    --s1: #2f6fde; --s2: #e0672b; --s3: #1f9d6b; --s4: #9547d6; --s5: #c79a12; --s6: #1aa7c4; --s7: #d83d77; --s8: #6b7280;
+    --s1: #2f6fde; --s2: #e0672b; --s3: #1f9d6b; --s4: #9547d6; --s5: #c79a12; --s6: #1aa7c4; --s7: #d83d77; --s8: #6b7280; --s9: #111827;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -29,7 +29,7 @@
       --cds-chart-grid: #2a2c33; --cds-chart-axis: #4a4d57; --cds-chart-reference: #70737d; --cds-chart-muted: #5a5d66;
       --cds-text-secondary: #a0a3ad; --cds-surface-popover: #24262c; --cds-border: #3a3d46;
       --cds-shadow-popover: 0 4px 18px rgba(0, 0, 0, .5);
-      --s1: #6c9dff; --s2: #ff9156; --s3: #4cc994; --s4: #bd84f5; --s5: #e6bf45; --s6: #4fcbe6; --s7: #f570a3; --s8: #a3a8b3;
+      --s1: #6c9dff; --s2: #ff9156; --s3: #4cc994; --s4: #bd84f5; --s5: #e6bf45; --s6: #4fcbe6; --s7: #f570a3; --s8: #a3a8b3; --s9: #ffffff;
     }
   }
   html { -webkit-text-size-adjust: 100%; }
@@ -125,7 +125,7 @@
         <tbody data-draw="volume" data-group="totals"></tbody>
       </table>
     </div>
-    <p class="lr-cap">每一行是一个单独的市场，有它自己的利率，不做合并。Aave V3、Aave V4、Spark、Venus、Fluid 和 Kamino 的 SOL/BTC Market 是共用利率的池子，BTC 和其他资产都能抵押，借出超过 1,000 万美元的就列出。Morpho 和 Jupiter Lend 上每一对抵押品和稳定币都是独立市场，这里只放 BTC 抵押（WBTC、cbBTC、kBTC 等）且借出超过 500 万美元的。还可借是现在剩余、可以马上借走的金额。Jupiter Lend 不提供利用率。</p>
+    <p class="lr-cap">每一行是一个单独的市场，有它自己的利率，不做合并。Aave V3、Aave V4、Spark、Venus、Fluid 和 Kamino 的 SOL/BTC Market 是共用利率的池子，BTC 和其他资产都能抵押，借出超过 1,000 万美元的就列出。Morpho 和 Jupiter Lend 上每一对抵押品和稳定币都是独立市场，这里只放 BTC 抵押（WBTC、cbBTC、kBTC 等）且借出超过 500 万美元的。还可借是现在剩余、可以马上借走的金额。Jupiter Lend 不提供利用率。Binance VIP Loan 是中心化交易所的借贷产品，可用 BTC 抵押，但币安不公布借出规模，所以排在最后。</p>
   </section>
 
   <section class="lr-sec" id="compare-trend">
@@ -133,7 +133,7 @@
     <div class="lr-card">
       <div class="lr-lines" data-draw="compare-lines" data-source="history"></div>
     </div>
-    <p class="lr-cap">图里的 7 个市场在上面的表格里用粗体标出。每天一个点，是当天的平均借款年化利率；图例里的数字是最近一天的。移到图上可以看某一天各市场的利率。</p>
+    <p class="lr-cap">图里的 9 个市场在上面的表格里用粗体标出。每天一个点，是当天的平均借款年化利率；图例里的数字是最近一天的。移到图上可以看某一天各市场的利率。</p>
   </section>
 
   <section class="lr-sec" id="compare-other">
@@ -268,6 +268,22 @@
     <p class="lr-cap">只列出借款规模超过 100 万美元的稳定币，不含 XVS 奖励。</p>
   </section>
 
+  <section class="lr-sec" id="binance">
+    <h2 class="lr-h2">Binance VIP Loan · 中心化交易所</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="borrow_apy_7d">7 日平均</th>
+          <th data-field="collateral" class="lr-text">说明</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="binance"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">币安官方公布的 VIP Loan 浮动年化利率，按小时计息，这里是不计复利的年化（APR），和上面各链上平台的 APY 相比会略低一点。币安不公布借出规模和可借额度。</p>
+  </section>
+
   <section class="lr-sec" id="kamino">
     <h2 class="lr-h2">Kamino · Solana</h2>
     <div class="lr-card lr-scroll">
@@ -322,7 +338,7 @@
     <p class="lr-cap">按借款规模列出前 14 个借出稳定币的 Vault。目前 BTC 抵押的 Vault 规模还很小，最大的是 cbBTC / USDC。</p>
   </section>
 
-  <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API。这是定时抓取的快照，不是逐块实时数据。</p>
+  <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API，Binance VIP Loan 来自币安官网公布的利率。这是定时抓取的快照，不是逐块实时数据。</p>
 </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -339,7 +355,7 @@
     }));
   };
   window.dash = {
-    colors: ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)'],
+    colors: ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)', 'var(--s9)'],
     data: (id) => store[id] || { status: 'missing', data: [] },
     draw: (name, fn) => { if (fn) draws.push([name, fn]); else runAll(); },
     onData: (fn) => fn(),
@@ -434,8 +450,8 @@
 
   dash.draw('volume', (tbody) => {
     const { status, rows } = rates();
-    const all = rows.filter((r) => (r.group === 'totals' || r.group === 'totals_other') && r.borrowed_musd != null);
-    const h = all.filter((r) => r.group === (tbody.dataset.group || 'totals')).sort((a, b) => b.borrowed_musd - a.borrowed_musd);
+    const all = rows.filter((r) => r.group === 'totals' || r.group === 'totals_other');   // borrowed_musd is null where a venue does not publish it
+    const h = all.filter((r) => r.group === (tbody.dataset.group || 'totals')).sort((a, b) => (b.borrowed_musd ?? -1) - (a.borrowed_musd ?? -1));
     if (!h.length) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
@@ -461,10 +477,11 @@
       track.className = 'lr-amt-track';
       const fill = document.createElement('div');
       fill.className = 'lr-amt-fill';
-      fill.style.width = (100 * r.borrowed_musd / max) + '%';
+      fill.style.width = (100 * (r.borrowed_musd || 0) / max) + '%';
+      fill.hidden = r.borrowed_musd == null;
       fill.style.background = dash.colors[0];
       track.append(fill);
-      inner.append(line('lr-amt-num', amount(r.borrowed_musd)), track);
+      inner.append(line('lr-amt-num', r.borrowed_musd == null ? '未公开' : amount(r.borrowed_musd)), track);
       amt.append(inner);
       tr.append(
         cell(r.asset, 'lr-asset'),
@@ -487,6 +504,8 @@
     ['fluid:usdt', 'Fluid · USDT'],
     ['fluid:usdc', 'Fluid · USDC'],
     ['kamino:7u3heh:usdc', 'Kamino · USDC'],
+    ['binance:usdt', 'Binance VIP Loan · USDT', true],
+    ['binance:usdc', 'Binance VIP Loan · USDC', true],
   ];
   const Y_RANGE = [3, 10];   // vertical axis of the comparison chart, in % (chosen by the dashboard's owner)
   dash.draw('compare-lines', (el) => {
