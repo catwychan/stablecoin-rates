@@ -111,7 +111,7 @@
   </header>
 
   <section class="lr-sec" id="compare">
-    <h2 class="lr-h2">可以用 BTC 抵押借的稳定币市场，按借出体量从多到少</h2>
+    <h2 class="lr-h2">可以用 BTC 抵押借的稳定币市场，币安在前，其余按借出体量从多到少</h2>
     <div class="lr-card lr-scroll">
       <table class="lr-table lr-vol" data-source="rates" data-row-key="id">
         <thead><tr>
@@ -125,7 +125,7 @@
         <tbody data-draw="volume" data-group="totals"></tbody>
       </table>
     </div>
-    <p class="lr-cap">每一行是一个单独的市场，有它自己的利率，不做合并。Aave V3、Aave V4、Spark、Venus、Fluid 和 Kamino 的 SOL/BTC Market 是共用利率的池子，BTC 和其他资产都能抵押，借出超过 1,000 万美元的就列出。Morpho 和 Jupiter Lend 上每一对抵押品和稳定币都是独立市场，这里只放 BTC 抵押（WBTC、cbBTC、kBTC 等）且借出超过 500 万美元的。还可借是现在剩余、可以马上借走的金额。Jupiter Lend 不提供利用率。Binance VIP Loan 是中心化交易所的借贷产品，可用 BTC 抵押，但币安不公布借出规模，所以排在最后。</p>
+    <p class="lr-cap">每一行是一个单独的市场，有它自己的利率，不做合并。Aave V3、Aave V4、Spark、Venus、Fluid 和 Kamino 的 SOL/BTC Market 是共用利率的池子，BTC 和其他资产都能抵押，借出超过 1,000 万美元的就列出。Morpho 和 Jupiter Lend 上每一对抵押品和稳定币都是独立市场，这里只放 BTC 抵押（WBTC、cbBTC、kBTC 等）且借出超过 500 万美元的。还可借是现在剩余、可以马上借走的金额。Jupiter Lend 不提供利用率。Binance VIP Loan 是中心化交易所的借贷产品，可用 BTC 抵押，放在最前面作参照；币安不公布借出规模，所以没有体量数字。</p>
   </section>
 
   <section class="lr-sec" id="compare-trend">
@@ -159,6 +159,22 @@
     <div class="lr-trends" data-draw="trends" data-source="history"></div>
     <p class="lr-cap">上面两张表格里的每个市场一张小图，按借出体量从多到少排列；另外加一张 Sky 储蓄利率，它是存款利率，不是借款利率。每天一个点，是当天的平均借款年化利率；右上角是最近一天的数字，虚线是 90 天平均。每张小图的纵轴都从 0 到自己的最高点，所以不同小图之间要看数字而不是看线的高低。上线不足 90 天的市场曲线会短一些。Jupiter Lend 的接口不提供历史利率，所以没有它的走势图。</p>
 </section>
+
+  <section class="lr-sec" id="binance">
+    <h2 class="lr-h2">Binance VIP Loan · 中心化交易所</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="borrow_apy_7d">7 日平均</th>
+          <th data-field="collateral" class="lr-text">说明</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="binance"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">币安官方公布的 VIP Loan 浮动年化利率，按小时计息，这里是不计复利的年化（APR），和上面各链上平台的 APY 相比会略低一点。币安不公布借出规模和可借额度。</p>
+  </section>
 
   <section class="lr-sec" id="aave-v3">
     <h2 class="lr-h2">Aave V3 · Ethereum Core</h2>
@@ -266,22 +282,6 @@
       </table>
     </div>
     <p class="lr-cap">只列出借款规模超过 100 万美元的稳定币，不含 XVS 奖励。</p>
-  </section>
-
-  <section class="lr-sec" id="binance">
-    <h2 class="lr-h2">Binance VIP Loan · 中心化交易所</h2>
-    <div class="lr-card lr-scroll">
-      <table class="lr-table" data-source="rates" data-row-key="id">
-        <thead><tr>
-          <th data-field="market">资产</th>
-          <th data-field="borrow_apy">借款利率</th>
-          <th data-field="borrow_apy_7d">7 日平均</th>
-          <th data-field="collateral" class="lr-text">说明</th>
-        </tr></thead>
-        <tbody data-draw="rows" data-group="binance"></tbody>
-      </table>
-    </div>
-    <p class="lr-cap">币安官方公布的 VIP Loan 浮动年化利率，按小时计息，这里是不计复利的年化（APR），和上面各链上平台的 APY 相比会略低一点。币安不公布借出规模和可借额度。</p>
   </section>
 
   <section class="lr-sec" id="kamino">
@@ -451,7 +451,7 @@
   dash.draw('volume', (tbody) => {
     const { status, rows } = rates();
     const all = rows.filter((r) => r.group === 'totals' || r.group === 'totals_other');   // borrowed_musd is null where a venue does not publish it
-    const h = all.filter((r) => r.group === (tbody.dataset.group || 'totals')).sort((a, b) => (b.borrowed_musd ?? -1) - (a.borrowed_musd ?? -1));
+    const h = all.filter((r) => r.group === (tbody.dataset.group || 'totals')).sort((a, b) => (b.borrowed_musd ?? Infinity) - (a.borrowed_musd ?? Infinity));   // venues without a published volume (Binance) go first
     if (!h.length) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
@@ -497,24 +497,24 @@
 
   // The markets drawn in the 90-day comparison chart, in legend order (chosen by the dashboard's owner).
   const COMPARE = [
-    ['aave-v3:usdc', 'Aave V3 Core · USDC'],
-    ['aave-v3:usdt', 'Aave V3 Core · USDT'],
-    ['morpho:8453:0x9103c3b4e8', 'Morpho · cbBTC / USDC (Base)', true],   // true = drawn bold
-    ['venus:usdt', 'Venus · USDT', true],
-    ['fluid:usdt', 'Fluid · USDT'],
-    ['fluid:usdc', 'Fluid · USDC'],
-    ['kamino:7u3heh:usdc', 'Kamino · USDC'],
-    ['binance:usdt', 'Binance VIP Loan · USDT', true],
-    ['binance:usdc', 'Binance VIP Loan · USDC', true],
+    // [series id, legend name, bold?, colour]. Each line has its own fixed colour so no two look alike.
+    ['binance:usdt', 'Binance VIP Loan · USDT', true, '#ef4444'],
+    ['binance:usdc', 'Binance VIP Loan · USDC', true, 'var(--color-fg)'],
+    ['aave-v3:usdc', 'Aave V3 Core · USDC', false, '#3b82f6'],
+    ['aave-v3:usdt', 'Aave V3 Core · USDT', false, '#f97316'],
+    ['morpho:8453:0x9103c3b4e8', 'Morpho · cbBTC / USDC (Base)', true, '#22c55e'],
+    ['venus:usdt', 'Venus · USDT', true, '#a855f7'],
+    ['fluid:usdt', 'Fluid · USDT', false, '#eab308'],
+    ['fluid:usdc', 'Fluid · USDC', false, '#06b6d4'],
+    ['kamino:7u3heh:usdc', 'Kamino · USDC', false, '#ec4899'],
   ];
-  const Y_RANGE = [3, 10];   // vertical axis of the comparison chart, in % (chosen by the dashboard's owner)
+  const Y_RANGE = [3, 8];   // vertical axis of the comparison chart, in % (chosen by the dashboard's owner)
   dash.draw('compare-lines', (el) => {
     const g = dash.data('history');
     const rows = g.status === 'ok' && Array.isArray(g.data) ? g.data : [];
     const dateOf = d3.utcParse('%Y-%m-%d'), md = d3.utcFormat('%-m月%-d日');
-    const palette = dash.colors && dash.colors.length ? dash.colors : ['currentColor'];
-    const series = COMPARE.map(([id, name, bold], i) => ({
-      id, name, bold: !!bold, color: palette[i % palette.length], dashed: i >= palette.length,
+    const series = COMPARE.map(([id, name, bold, color]) => ({
+      id, name, bold: !!bold, color, dashed: false,
       pts: rows.filter((r) => r.series === id && r.borrow_apy != null).map((r) => ({ t: dateOf(r.date), v: r.borrow_apy })).sort((a, b) => a.t - b.t),
     })).filter((s) => s.pts.length > 1);
     if (!series.length) return fail(el, g.status);
