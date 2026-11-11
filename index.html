@@ -78,7 +78,8 @@
   .lr-lines-plot { position: relative; touch-action: pan-y; }
   .lr-lines-plot svg { display: block; }
   .lr-series { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
-  .lr-series.lr-bold { stroke-width: 3.4; }
+  .lr-series { opacity: .7; stroke-width: 1.3; }
+  .lr-series.lr-bold { stroke-width: 3.6; opacity: 1; }
   .lr-legend-item.lr-bold .lr-legend-name { font-weight: var(--cds-font-weight-medium); }
   .lr-legend-item.lr-bold .lr-legend-sw { height: 5px; }
   .lr-grid { stroke: var(--cds-chart-grid); stroke-width: 1; }
@@ -136,6 +137,22 @@
     <p class="lr-cap">图里的 9 个市场在上面的表格里用粗体标出。每天一个点，是当天的平均借款年化利率；图例里的数字是最近一天的。移到图上可以看某一天各市场的利率。</p>
   </section>
 
+  <section class="lr-sec" id="binance">
+    <h2 class="lr-h2">Binance VIP Loan · 中心化交易所</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">资产</th>
+          <th data-field="borrow_apy">借款利率</th>
+          <th data-field="borrow_apy_7d">7 日平均</th>
+          <th data-field="collateral" class="lr-text">说明</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="binance"></tbody>
+      </table>
+    </div>
+    <p class="lr-cap">币安官方公布的 VIP Loan 浮动年化利率，按小时计息，这里是不计复利的年化（APR），和上面各链上平台的 APY 相比会略低一点。币安不公布借出规模和可借额度。</p>
+  </section>
+
   <section class="lr-sec" id="compare-other">
     <h2 class="lr-h2">其他抵押品的稳定币市场</h2>
     <div class="lr-card lr-scroll">
@@ -152,28 +169,6 @@
       </table>
     </div>
     <p class="lr-cap">抵押品不是 BTC 的独立市场：Morpho（PRIME、PT、sUSDe、USDe、wstETH 等）、Jupiter Lend（JLP、SOL 等）和 Kamino 的专项市场，借出超过 5,000 万美元的。条形长度和上一张表用同一把尺子，可以直接比较。</p>
-  </section>
-
-  <section class="lr-sec" id="trend">
-    <h2 class="lr-h2">过去 90 天借款利率走势</h2>
-    <div class="lr-trends" data-draw="trends" data-source="history"></div>
-    <p class="lr-cap">上面两张表格里的每个市场一张小图，按借出体量从多到少排列；另外加一张 Sky 储蓄利率，它是存款利率，不是借款利率。每天一个点，是当天的平均借款年化利率；右上角是最近一天的数字，虚线是 90 天平均。每张小图的纵轴都从 0 到自己的最高点，所以不同小图之间要看数字而不是看线的高低。上线不足 90 天的市场曲线会短一些。Jupiter Lend 的接口不提供历史利率，所以没有它的走势图。</p>
-</section>
-
-  <section class="lr-sec" id="binance">
-    <h2 class="lr-h2">Binance VIP Loan · 中心化交易所</h2>
-    <div class="lr-card lr-scroll">
-      <table class="lr-table" data-source="rates" data-row-key="id">
-        <thead><tr>
-          <th data-field="market">资产</th>
-          <th data-field="borrow_apy">借款利率</th>
-          <th data-field="borrow_apy_7d">7 日平均</th>
-          <th data-field="collateral" class="lr-text">说明</th>
-        </tr></thead>
-        <tbody data-draw="rows" data-group="binance"></tbody>
-      </table>
-    </div>
-    <p class="lr-cap">币安官方公布的 VIP Loan 浮动年化利率，按小时计息，这里是不计复利的年化（APR），和上面各链上平台的 APY 相比会略低一点。币安不公布借出规模和可借额度。</p>
   </section>
 
   <section class="lr-sec" id="aave-v3">
@@ -338,6 +333,12 @@
     <p class="lr-cap">按借款规模列出前 14 个借出稳定币的 Vault。目前 BTC 抵押的 Vault 规模还很小，最大的是 cbBTC / USDC。</p>
   </section>
 
+  <section class="lr-sec" id="trend">
+    <h2 class="lr-h2">过去 90 天借款利率走势</h2>
+    <div class="lr-trends" data-draw="trends" data-source="history"></div>
+    <p class="lr-cap">上面两张表格里的每个市场一张小图，Binance VIP Loan 排在最前，其余按借出体量从多到少排列；另外加一张 Sky 储蓄利率，它是存款利率，不是借款利率。每天一个点，是当天的平均借款年化利率；右上角是最近一天的数字，虚线是 90 天平均。每张小图的纵轴都从 0 到自己的最高点，所以不同小图之间要看数字而不是看线的高低。上线不足 90 天的市场曲线会短一些。Jupiter Lend 的接口不提供历史利率，所以没有它的走势图。</p>
+</section>
+
   <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API，Binance VIP Loan 来自币安官网公布的利率。这是定时抓取的快照，不是逐块实时数据。</p>
 </div>
 </div>
@@ -498,15 +499,15 @@
   // The markets drawn in the 90-day comparison chart, in legend order (chosen by the dashboard's owner).
   const COMPARE = [
     // [series id, legend name, bold?, colour]. Each line has its own fixed colour so no two look alike.
-    ['binance:usdt', 'Binance VIP Loan · USDT', true, '#ef4444'],
-    ['binance:usdc', 'Binance VIP Loan · USDC', true, 'var(--color-fg)'],
-    ['aave-v3:usdc', 'Aave V3 Core · USDC', false, '#3b82f6'],
-    ['aave-v3:usdt', 'Aave V3 Core · USDT', false, '#f97316'],
-    ['morpho:8453:0x9103c3b4e8', 'Morpho · cbBTC / USDC (Base)', true, '#22c55e'],
-    ['venus:usdt', 'Venus · USDT', true, '#a855f7'],
-    ['fluid:usdt', 'Fluid · USDT', false, '#eab308'],
-    ['fluid:usdc', 'Fluid · USDC', false, '#06b6d4'],
-    ['kamino:7u3heh:usdc', 'Kamino · USDC', false, '#ec4899'],
+    ['binance:usdt', 'Binance VIP Loan · USDT', true, '#2563eb'],     // bold: blue
+    ['binance:usdc', 'Binance VIP Loan · USDC', true, '#f97316'],     // bold: orange
+    ['aave-v3:usdc', 'Aave V3 Core · USDC', false, '#a855f7'],
+    ['aave-v3:usdt', 'Aave V3 Core · USDT', false, '#ef4444'],
+    ['morpho:8453:0x9103c3b4e8', 'Morpho · cbBTC / USDC (Base)', true, '#16a34a'],   // bold: green
+    ['venus:usdt', 'Venus · USDT', true, '#eab308'],   // bold: yellow
+    ['fluid:usdt', 'Fluid · USDT', false, '#ec4899'],
+    ['fluid:usdc', 'Fluid · USDC', false, '#94a3b8'],
+    ['kamino:7u3heh:usdc', 'Kamino · USDC', false, '#7c5c46'],
   ];
   const Y_RANGE = [3, 8];   // vertical axis of the comparison chart, in % (chosen by the dashboard's owner)
   dash.draw('compare-lines', (el) => {
@@ -604,7 +605,7 @@
     const groups = d3.groups(rows.filter((r) => r.borrow_apy != null), (r) => r.series)
       .map(([, pts]) => pts.slice().sort((a, b) => d3.ascending(a.date, b.date)))
       .filter((pts) => pts.length > 1)
-      .sort((a, b) => a[0].order - b[0].order);
+      .sort((a, b) => (b[0].platform === 'Binance VIP Loan') - (a[0].platform === 'Binance VIP Loan') || a[0].order - b[0].order);   // Binance first, then by borrowed volume
     const W = 300, H = 84, PAD = 4;
     const svgEl = (tag) => document.createElementNS('http://www.w3.org/2000/svg', tag);
     const dateOf = d3.utcParse('%Y-%m-%d'), md = d3.utcFormat('%-m月%-d日');
