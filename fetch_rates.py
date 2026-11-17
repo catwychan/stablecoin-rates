@@ -668,8 +668,31 @@ def binance_savings():
     return table, hist
 
 
+OKX_BONUS_PAGE = "https://www.okx.com/help/simple-earn-flexible-bonus-policy-update"
+OKX_BONUS_PUBLISHED = {"USDT": (10.0, 1000.0, 180), "USDC": (10.0, 1000.0, 180)}   # as published; used if the page can't be read
+
+
+def okx_bonus():
+    """OKX has no API for its Simple Earn bonus, but publishes the rules in its help centre:
+    {coin: (bonus APR %, amount limit, days)}. Read from that article; falls back to the last known table."""
+    import re
+    try:
+        req = urllib.request.Request(OKX_BONUS_PAGE, headers={**BROWSER, "accept": "text/html"})
+        page = urllib.request.urlopen(req, timeout=40).read().decode("utf-8", "ignore")
+        text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", page, flags=re.S)))
+        found = {m.group(1): (float(m.group(2)), float(m.group(3).replace(",", "")), int(m.group(4)))
+                 for m in re.finditer(r"\b(USDT|USDC)\s+(\d+(?:\.\d+)?)%\s+([\d,]+)\s*(?:USDT|USDC)\s+(\d+)\s*days", text)}
+        if found:
+            return found, True
+        print("  OKX bonus article: table not found, using the last known rules")
+    except Exception as e:
+        print(f"  OKX bonus article unreachable ({e}), using the last known rules")
+    return dict(OKX_BONUS_PUBLISHED), False
+
+
 def okx_savings():
     """Simple Earn Flexible: the hourly lending rate savers earn (OKX's official public API)."""
+    bonus, live = okx_bonus()
     base = "https://www.okx.com/api/v5/finance/savings/lending-rate-history?limit=100&ccy="
     table, hist = [], []
     for coin in CEX_COINS["OKX"]:
@@ -689,7 +712,13 @@ def okx_savings():
         week = [v for ms, v in pts if ms >= (NOW_TS - 7 * 86400) * 1000]
         series = f"cex:okx:{coin}".lower()
         hist += hist_rows(series, f"OKX 活期 · {coin}", "CEX savings", 0, daily_avg(pts))
-        table.append(savings_row("OKX", coin, pts[-1][1], week, "接口未公开", None, None,
+        if coin in bonus:
+            apr, cap, days = bonus[coin]
+            text = f"首 {days} 天：前 {cap:,.0f} {coin} 按 {apr:.2f}%" + ("" if live else "（上次读到的规则）")
+            top = max(apr, pts[-1][1])
+        else:
+            text, top = "无", pts[-1][1]
+        table.append(savings_row("OKX", coin, pts[-1][1], week, text, top, None,
                                  "随存随取；利率每小时更新", series))
     return table, hist
 
