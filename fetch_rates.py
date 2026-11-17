@@ -12,11 +12,16 @@ Sources (all free, no key):
   Jupiter Lend (Solana) : lite-api.jup.ag
   Binance VIP Loan : www.binance.com public bapi (optional source: skipped, not FAILED, when unreachable)
   Sky Savings Rate / stUSDS : info-sky.blockanalitica.com (+ yields.llama.fi/chart for SSR history)
+  sUSDe / syrupUSDC / syrupUSDT yield : read ON-CHAIN (vault share price at past blocks) through public Ethereum
+      nodes: rpc.mevblocker.io, eth-mainnet.public.blastapi.io (optional source)
+  Binance Simple Earn Flexible : www.binance.com public bapi; OKX Simple Earn Flexible : www.okx.com/api/v5 (optional source)
 
 rates.json   one row per market, `group` =
     totals      single markets by borrowed volume (pools/hubs >= $10M, Morpho BTC-collateral markets >= $50M), for the volume table
     totals_other  Morpho markets >= $50M with non-BTC collateral, for the second volume table
     aave_v3 / aave_v4 / spark / sky_savings / morpho_btc / morpho_top / venus   the per-platform tables
+    yield        yield-bearing stablecoins (supply_apy = 7-day annualised share-price growth, apy_30d, apy_90d, share_price)
+    cex_savings  exchange flexible savings (supply_apy = base rate, apy_7d, bonus_text, max_apy = base + bonus tier)
 history.json one row per series per day: 90 days of daily average borrow APY.
 
 If one source fails, its rows from the previous files are kept (with their old fetched_at).
@@ -505,7 +510,206 @@ def binance():
     return {"binance": table}, totals, hist
 
 
-OPTIONAL_SOURCES = {"Binance VIP Loan"}   # unreachable from some networks; never blocks a refresh
+# ---------------------------------------------------------------- yield-bearing stablecoins, read on-chain
+# No website API here: the yield is worked out from each vault's own share price on Ethereum
+# (ERC-4626 convertToAssets), read at past blocks through public RPC nodes.
+ETH_RPCS = ("https://rpc.mevblocker.io", "https://eth-mainnet.public.blastapi.io")   # free nodes that still serve old blocks
+YIELD_VAULTS = (   # key, product, issuer, vault contract, underlying, decimals, note
+    ("susde", "sUSDe", "Ethena", "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497", "USDe", 18,
+     "质押 USDe 得到；收益来自永续合约资金费率和储备资产利息"),
+    ("syrupusdc", "syrupUSDC", "Maple", "0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b", "USDC", 6,
+     "Maple 机构超额抵押贷款的利息；不含 Drips 等链下奖励"),
+    ("syrupusdt", "syrupUSDT", "Maple", "0x356B8d89c1e1239Cbbb9dE4815c39A1474d5BA7D", "USDT", 6,
+     "Maple 机构超额抵押贷款的利息；不含 Drips 等链下奖励"),
+)
+YEAR = 365 * 86400
+
+
+def eth_rpc(calls):
+    """calls: [(method, params)] -> results in the same order.
+    Batches of 20 with a short pause; public nodes rate-limit, so it rotates between them and retries."""
+    out, first = [], 0
+    for i in range(0, len(calls), 20):
+        chunk = [{"jsonrpc": "2.0", "id": j, "method": m, "params": p} for j, (m, p) in enumerate(calls[i:i + 20])]
+        err, done = None, False
+        for attempt in range(4):
+            for k in range(len(ETH_RPCS)):
+                url = ETH_RPCS[(first + k) % len(ETH_RPCS)]
+                try:
+                    req = urllib.request.Request(url, data=json.dumps(chunk).encode(),
+                                                 headers={**UA, "content-type": "application/json"})
+                    r = json.load(urllib.request.urlopen(req, timeout=40))
+                    got = {x.get("id"): x.get("result") for x in r} if isinstance(r, list) else {}
+                    if all(got.get(j) not in (None, "0x") for j in range(len(chunk))):
+                        out += [got[j] for j in range(len(chunk))]
+                        first, done = (first + k) % len(ETH_RPCS), True      # keep using the node that works
+                        break
+                    err = f"{url}: incomplete answer {str(r)[:120]}"
+                except Exception as e:
+                    err = f"{url}: {e}"
+            if done:
+                break
+            time.sleep(3 * (attempt + 1))
+        if not done:
+            raise RuntimeError(f"no Ethereum node answered ({err})")
+        time.sleep(0.25)
+    return out
+
+
+def onchain_yield():
+    """sUSDe / syrupUSDC / syrupUSDT: annualised growth of the vault share price, from the chain itself."""
+    head = eth_rpc([("eth_getBlockByNumber", ["latest", False])])[0]
+    n_now, t_now = int(head["number"], 16), int(head["timestamp"], 16)
+    midnight = t_now // 86400 * 86400
+    targets = [midnight - 86400 * i for i in range(DAYS + 7, -1, -1)]      # 00:00 UTC of each day, oldest first
+    guess = n_now - int((t_now - targets[0]) / 12.05)                      # measure the real seconds per block
+    t_guess = int(eth_rpc([("eth_getBlockByNumber", [hex(guess), False])])[0]["timestamp"], 16)
+    per_block = (t_now - t_guess) / (n_now - guess)
+    blocks = [n_now - round((t_now - t) / per_block) for t in targets] + [n_now]
+
+    calls = []
+    for b in blocks:                                                       # per day: the block's time + 3 share prices
+        calls.append(("eth_getBlockByNumber", [hex(b), False]))
+        for _, _, _, vault, _, dec, _ in YIELD_VAULTS:                     # convertToAssets(1,000,000 shares)
+            calls.append(("eth_call", [{"to": vault, "data": "0x07a2d13a" + hex(10 ** (dec + 6))[2:].rjust(64, "0")}, hex(b)]))
+    res = eth_rpc(calls)
+    step = 1 + len(YIELD_VAULTS)
+    ts = [int(res[i * step]["timestamp"], 16) for i in range(len(blocks))]
+    totals = eth_rpc([("eth_call", [{"to": v[3], "data": "0x01e1d114"}, hex(n_now)]) for v in YIELD_VAULTS])   # totalAssets()
+
+    def growth(px, i, span):
+        """Annualised % between point i and the last point at least `span` seconds before it."""
+        j = max((k for k in range(i) if ts[k] <= ts[i] - span), default=None)
+        if j is None or not px[j]:
+            return None
+        return ((px[i] / px[j]) ** (YEAR / (ts[i] - ts[j])) - 1) * 100
+
+    table, hist = [], []
+    for n, (key, product, issuer, vault, underlying, dec, note) in enumerate(YIELD_VAULTS):
+        px = [int(res[i * step + 1 + n], 16) for i in range(len(blocks))]
+        total = int(totals[n], 16) / 10 ** dec
+        last = len(px) - 1
+        apy7 = growth(px, last, 7 * 86400)
+        if apy7 is None:
+            raise RuntimeError(f"no share price history for {product}")
+        series = "yield:" + key
+        r = row("yield", issuer, "Ethereum", product, underlying, note, None, apy7, None, None, None,
+                "链上合约（ERC-4626 份额价格）", series=series)
+        r["id"] = series
+        r["tvl_musd"] = r2(total / 1e6, 1)
+        r["apy_30d"] = r2(growth(px, last, 30 * 86400))
+        r["apy_90d"] = r2(growth(px, last, 90 * 86400))
+        r["share_price"] = r2(px[last] / 10 ** (dec + 6), 4)
+        table.append(r)
+        pts = [(day(ts[i] - 43200) if i < last else day(ts[i]), growth(px, i, 7 * 86400)) for i in range(len(px))]
+        hist += hist_rows(series, f"{product} · 7 日年化", "Onchain yield", total, pts)
+    table.sort(key=lambda r: -(r["tvl_musd"] or 0))
+    return {"yield": table}, [], hist
+
+
+# ---------------------------------------------------------------- exchange flexible savings (Binance, OKX)
+CEX_COINS = {"Binance": ("USDT", "USDC", "FDUSD", "USD1"), "OKX": ("USDT", "USDC")}
+CEX_TREND = ("USDT", "USDC")          # coins that get a 90-day panel
+BROWSER = {"accept": "application/json", "clienttype": "web",
+           "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"}
+
+
+def web_get(url):
+    return json.load(urllib.request.urlopen(urllib.request.Request(url, headers=BROWSER), timeout=60))
+
+
+def daily_avg(points):
+    """points: [(ms, pct)] hourly -> [(YYYY-MM-DD, average pct)]"""
+    days = {}
+    for ms, v in points:
+        days.setdefault(day(ms / 1000), []).append(v)
+    return [(d, sum(v) / len(v)) for d, v in days.items()]
+
+
+def savings_row(exchange, coin, base, week, bonus_text, top, size, note, series):
+    r = row("cex_savings", f"{exchange} 活期", "CeFi", f"{exchange} · {coin}", coin, note, None, base, None, None, None,
+            exchange, series=series)
+    r["id"] = series
+    r["apy_7d"] = r2(sum(week) / len(week)) if week else None
+    r["bonus_text"] = bonus_text
+    r["max_apy"] = r2(top)
+    r["tvl_musd"] = r2(None if size is None else size / 1e6, 1)
+    return r
+
+
+def binance_savings():
+    """Simple Earn Flexible: real-time APR plus the bonus APR Binance pays on the first tranche."""
+    base = "https://www.binance.com/bapi/earn/v1/friendly/lending/daily/product/"
+    table, hist = [], []
+    for coin in CEX_COINS["Binance"]:
+        found = [p for p in web_get(f"{base}list?asset={coin}&pageIndex=1&pageSize=10").get("data") or [] if p.get("asset") == coin]
+        if not found:
+            if coin in CEX_TREND:
+                raise RuntimeError(f"no flexible product for {coin}")
+            continue
+        p = found[0]
+        rate = float(p["marketApr"]) * 100
+        tiers = p.get("tierAnnualInterestRateList") or []
+        bonus = "；".join(f"前 {float(t['endAmount']):,.0f} {coin} 加 {float(t['annualInterestRate']) * 100:.2f}%" for t in tiers) or "无"
+        top = rate + max([float(t["annualInterestRate"]) * 100 for t in tiers], default=0)
+        size = float(p.get("purchasedAmount") or 0)
+        series = f"cex:binance:{coin}".lower()
+        week = []
+        if coin in CEX_TREND:
+            try:
+                h = web_get(f"{base}position-market-apr?productId={p['id']}&startTime={(NOW_TS - (DAYS + 1) * 86400) * 1000}&endTime={NOW_TS * 1000}")
+                pts = [(int(x["calcTime"]), float(x["marketApr"]) * 100) for x in h["data"]["marketAprList"]]
+                week = [v for ms, v in pts if ms >= (NOW_TS - 7 * 86400) * 1000]
+                hist += hist_rows(series, f"Binance 活期 · {coin}", "CEX savings", size, daily_avg(pts))
+            except Exception as e:
+                print(f"  history failed {series}: {e}")
+        table.append(savings_row("Binance", coin, rate, week, bonus, top, size,
+                                 "随存随取；利率实时浮动", series))
+    return table, hist
+
+
+def okx_savings():
+    """Simple Earn Flexible: the hourly lending rate savers earn (OKX's official public API)."""
+    base = "https://www.okx.com/api/v5/finance/savings/lending-rate-history?limit=100&ccy="
+    table, hist = [], []
+    for coin in CEX_COINS["OKX"]:
+        pts, after = [], None
+        for _ in range(DAYS * 24 // 100 + 2):                    # 100 hourly records a page, newest first
+            data = web_get(base + coin + (f"&after={after}" if after else "")).get("data") or []
+            if not data:
+                break
+            pts += [(int(x["ts"]), float(x["lendingRate"]) * 100) for x in data]
+            after = min(int(x["ts"]) for x in data)
+            time.sleep(0.2)
+            if after < (NOW_TS - (DAYS + 1) * 86400) * 1000:
+                break
+        if not pts:
+            raise RuntimeError(f"no lending rate for {coin}")
+        pts.sort()
+        week = [v for ms, v in pts if ms >= (NOW_TS - 7 * 86400) * 1000]
+        series = f"cex:okx:{coin}".lower()
+        hist += hist_rows(series, f"OKX 活期 · {coin}", "CEX savings", 0, daily_avg(pts))
+        table.append(savings_row("OKX", coin, pts[-1][1], week, "接口未公开", None, None,
+                                 "随存随取；利率每小时更新", series))
+    return table, hist
+
+
+def cex_savings():
+    table, hist, errors = [], [], []
+    for name, fn in (("Binance", binance_savings), ("OKX", okx_savings)):
+        try:
+            t, h = fn()
+            table += t
+            hist += h
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+            print(f"  skipped {name} savings: {e}")
+    if not table:
+        raise RuntimeError("; ".join(errors))
+    return {"cex_savings": table}, [], hist
+
+
+OPTIONAL_SOURCES = {"Binance VIP Loan", "Onchain yield", "CEX savings"}   # unreachable from some networks; never blocks a refresh
 
 PLATFORM_OF = {"Aave V3": "Aave V3", "Aave V4": "Aave V4", "Morpho": "Morpho", "Venus": "Venus"}
 
@@ -513,6 +717,10 @@ PLATFORM_OF = {"Aave V3": "Aave V3", "Aave V4": "Aave V4", "Morpho": "Morpho", "
 def source_of(protocol):
     if protocol in ("Spark", "Sky"):
         return "Sky"
+    if protocol in ("Ethena", "Maple"):
+        return "Onchain yield"
+    if protocol in ("Binance 活期", "OKX 活期"):
+        return "CEX savings"
     for k in PLATFORM_OF:
         if protocol == k or (k == "Aave V3" and protocol.startswith("Aave V3")):
             return k
@@ -532,7 +740,9 @@ def main():
     for name, fn, table_groups in (("Aave V3", aave_v3, ["aave_v3"]), ("Aave V4", aave_v4, ["aave_v4"]),
                                    ("Morpho", morpho, ["morpho_btc", "morpho_top"]), ("Venus", venus, ["venus"]), ("Sky", sky, ["spark", "sky_savings"]), ("Kamino", kamino, ["kamino"]),
                                    ("Fluid", fluid, ["fluid"]), ("Jupiter Lend", jupiter, ["jupiter"]),
-                                   ("Binance VIP Loan", binance, ["binance"])):
+                                   ("Binance VIP Loan", binance, ["binance"]),
+                                   ("Onchain yield", onchain_yield, ["yield"]),
+                                   ("CEX savings", cex_savings, ["cex_savings"])):
         try:
             g, t, h = fn()
             groups.update(g)
@@ -548,7 +758,7 @@ def main():
         hist += h
     totals.sort(key=lambda r: -(r["borrowed_musd"] or 0))
     rows = totals + sum((groups.get(g, []) for g in ["aave_v3", "aave_v4", "spark", "sky_savings", "morpho_btc", "morpho_top", "venus",
-                                                                 "kamino", "fluid", "jupiter", "binance"]), [])
+                                                                 "kamino", "fluid", "jupiter", "binance", "yield", "cex_savings"]), [])
     if not rows:
         sys.exit("all sources failed: " + "; ".join(failed))
     # history panels go in order of borrowed volume
@@ -563,7 +773,7 @@ def main():
     json.dump(hist, open(HIST, "w"), ensure_ascii=False, separators=(",", ":"))
     print(f"wrote {len(rows)} rows to {OUT} and {len(hist)} rows ({len(rank)} series) to {HIST} at {NOW}")
     for g in ["totals", "totals_other", "aave_v3", "aave_v4", "spark", "sky_savings", "morpho_btc", "morpho_top", "venus",
-              "kamino", "fluid", "jupiter", "binance"]:
+              "kamino", "fluid", "jupiter", "binance", "yield", "cex_savings"]:
         print(f"  {g}: {sum(1 for r in rows if r['group'] == g)}")
     if failed:
         print("FAILED (kept old rows): " + "; ".join(failed))
