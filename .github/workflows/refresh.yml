@@ -2,8 +2,11 @@ name: Refresh rates and publish
 
 on:
   schedule:
-    # GitHub runs schedules on a best-effort basis and often skips some, so ask hourly.
-    - cron: "17 * * * *"
+    # Once a day at 14:30 UTC (9:30 US Eastern, 10:30 in summer), after the day's SOFR is out.
+    # GitHub skips some scheduled runs, so the two later slots are retries: they do nothing once today's refresh has run.
+    - cron: "30 14 * * *"
+    - cron: "30 16 * * *"
+    - cron: "30 19 * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -19,7 +22,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      done: ${{ steps.today.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: today
+        name: Has today's refresh already run?
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] \
+             && [ "$(cut -c1-10 last_run.txt 2>/dev/null)" = "$(date -u +%F)" ] \
+             && [ "$(cut -c12-13 last_run.txt)" -ge 14 ]; then
+            echo "done=true" >> "$GITHUB_OUTPUT"
+            echo "Already refreshed today at $(cat last_run.txt) - nothing to do."
+          fi
+
   publish:
+    needs: gate
+    if: needs.gate.outputs.done != 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -43,7 +64,7 @@ jobs:
           path: _site
       - id: deploy
         uses: actions/deploy-pages@v4
-      - name: Record the run (keeps the schedule active)
+      - name: Record the run (the retry slots check this)
         continue-on-error: true
         run: |
           date -u +%Y-%m-%dT%H:%M:%SZ > last_run.txt
