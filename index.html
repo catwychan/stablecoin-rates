@@ -112,6 +112,25 @@
     <p class="lr-cap">数据抓取时间：<span data-draw="asof" data-source="rates" data-field="fetched_at">—</span>（你的本地时间）。利率均为浮动年化 APY，随资金利用率实时变化。</p>
   </header>
 
+  <section class="lr-sec" id="yield">
+    <h2 class="lr-h2">基准利率 · SOFR 和收益型稳定币（sUSDe、syrupUSDC、syrupUSDT）</h2>
+    <div class="lr-card lr-scroll">
+      <table class="lr-table" data-source="rates" data-row-key="id">
+        <thead><tr>
+          <th data-field="market">产品</th>
+          <th data-field="supply_apy">当前年化</th>
+          <th data-field="apy_30d">30 日</th>
+          <th data-field="apy_90d">90 日</th>
+          <th data-field="tvl_musd">规模（百万美元）</th>
+          <th data-field="collateral" class="lr-text">说明</th>
+        </tr></thead>
+        <tbody data-draw="rows" data-group="yield"></tbody>
+      </table>
+    </div>
+    <div class="lr-trends lr-trends-side" data-draw="trends" data-source="history" data-only="yield:"></div>
+    <p class="lr-cap">SOFR 是美元的隔夜基准利率，纽约联储每个工作日早上公布上一个工作日的数字，所以“当前”是最新公布的那一期（周末和假日没有新数字）；30 日和 90 日是纽约联储公布的复利平均。它是不计复利、按 360 天计的年化。sUSDe、syrupUSDC、syrupUSDT 的数字不来自任何网站的接口，而是直接读以太坊上的金库合约：每一份能换回多少稳定币（份额价格），把这个价格在过去 7 天（“当前”一栏）、30 天、90 天里的涨幅折成年化。所以它是持有人实际拿到的收益，不含 Maple 的 Drips 等链下发放的额外奖励。小图里 SOFR 每个工作日一个点，其余每天一个点，是截至当天的 7 日年化。</p>
+  </section>
+
   <section class="lr-sec" id="compare">
     <h2 class="lr-h2">可以用 BTC 抵押借的稳定币市场，币安在前，其余按借出体量从多到少</h2>
     <div class="lr-card lr-scroll">
@@ -152,25 +171,6 @@
       </table>
     </div>
     <p class="lr-cap">币安官方公布的 VIP Loan 浮动年化利率，按小时计息，这里是不计复利的年化（APR），和上面各链上平台的 APY 相比会略低一点。币安不公布借出规模和可借额度。</p>
-  </section>
-
-  <section class="lr-sec" id="yield">
-    <h2 class="lr-h2">收益型稳定币 · sUSDe、syrupUSDC、syrupUSDT（链上直接读取）</h2>
-    <div class="lr-card lr-scroll">
-      <table class="lr-table" data-source="rates" data-row-key="id">
-        <thead><tr>
-          <th data-field="market">产品</th>
-          <th data-field="supply_apy">7 日年化</th>
-          <th data-field="apy_30d">30 日年化</th>
-          <th data-field="apy_90d">90 日年化</th>
-          <th data-field="tvl_musd">规模（百万美元）</th>
-          <th data-field="collateral" class="lr-text">说明</th>
-        </tr></thead>
-        <tbody data-draw="rows" data-group="yield"></tbody>
-      </table>
-    </div>
-    <div class="lr-trends lr-trends-side" data-draw="trends" data-source="history" data-only="yield:"></div>
-    <p class="lr-cap">这三个数字不来自任何网站的接口，而是直接读以太坊上的金库合约：每一份 sUSDe / syrupUSDC / syrupUSDT 能换回多少稳定币（份额价格），把这个价格在过去 7 天、30 天、90 天里的涨幅折成年化。所以它是持有人实际拿到的收益，不含 Maple 的 Drips 等链下发放的额外奖励。小图每天一个点，是截至当天的 7 日年化。</p>
   </section>
 
   <section class="lr-sec" id="cex-savings">
@@ -376,10 +376,10 @@
   <section class="lr-sec" id="trend">
     <h2 class="lr-h2">过去 90 天借款利率走势</h2>
     <div class="lr-trends" data-draw="trends" data-source="history"></div>
-    <p class="lr-cap">上面两张表格里的每个市场一张小图，Binance VIP Loan 排在最前，其余按借出体量从多到少排列；另外加一张 Sky 储蓄利率，它是存款利率，不是借款利率。收益型稳定币和交易所活期的走势放在上面各自的表格下面。每天一个点，是当天的平均借款年化利率；右上角是最近一天的数字，虚线是 90 天平均。每张小图的纵轴都从 0 到自己的最高点，所以不同小图之间要看数字而不是看线的高低。上线不足 90 天的市场曲线会短一些。Jupiter Lend 的接口不提供历史利率，所以没有它的走势图。</p>
+    <p class="lr-cap">上面两张表格里的每个市场一张小图，Binance VIP Loan 排在最前，其余按借出体量从多到少排列；另外加一张 Sky 储蓄利率，它是存款利率，不是借款利率。SOFR、收益型稳定币和交易所活期的走势放在上面各自的表格下面。每天一个点，是当天的平均借款年化利率；右上角是最近一天的数字，虚线是 90 天平均。每张小图的纵轴都从 0 到自己的最高点，所以不同小图之间要看数字而不是看线的高低。上线不足 90 天的市场曲线会短一些。Jupiter Lend 的接口不提供历史利率，所以没有它的走势图。</p>
 </section>
 
-  <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API，Binance VIP Loan 和币安活期来自币安官网公布的利率，OKX 活期来自 OKX 官方公开 API，sUSDe、syrupUSDC、syrupUSDT 的收益直接从以太坊链上的合约读取。这是定时抓取的快照，不是逐块实时数据。</p>
+  <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API，Binance VIP Loan 和币安活期来自币安官网公布的利率，OKX 活期来自 OKX 官方公开 API，sUSDe、syrupUSDC、syrupUSDT 的收益直接从以太坊链上的合约读取，SOFR 来自纽约联储。这是定时抓取的快照，不是逐块实时数据。</p>
 </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>

@@ -14,6 +14,7 @@ Sources (all free, no key):
   Sky Savings Rate / stUSDS : info-sky.blockanalitica.com (+ yields.llama.fi/chart for SSR history)
   sUSDe / syrupUSDC / syrupUSDT yield : read ON-CHAIN (vault share price at past blocks) through public Ethereum
       nodes: rpc.mevblocker.io, eth-mainnet.public.blastapi.io (optional source)
+  SOFR : markets.newyorkfed.org (New York Fed, daily; shown first in the `yield` group)
   Binance Simple Earn Flexible : www.binance.com public bapi; OKX Simple Earn Flexible : www.okx.com/api/v5 (optional source)
 
 rates.json   one row per market, `group` =
@@ -556,6 +557,45 @@ def eth_rpc(calls):
     return out
 
 
+def sofr():
+    """SOFR, the US dollar overnight benchmark, from the New York Fed (which publishes it each business morning
+    for the previous business day). Simple annual rate on a 360-day basis."""
+    base = "https://markets.newyorkfed.org/api/rates/secured/"
+    days = sorted(get(base + "sofr/last/70.json")["refRates"], key=lambda x: x["effectiveDate"])
+    last = days[-1]
+    avg = (get(base + "sofrai/last/1.json").get("refRates") or [{}])[0]
+    r = row("yield", "NY Fed", "美国", "SOFR", "USD",
+            f"美元隔夜担保融资利率，纽约联储公布；最新一期是 {last['effectiveDate']}", None, last["percentRate"],
+            None, None, None, "纽约联储", series="yield:sofr")
+    r["id"] = "yield:sofr"
+    r["apy_30d"], r["apy_90d"], r["share_price"] = r2(avg.get("average30day")), r2(avg.get("average90day")), None
+    hist = hist_rows("yield:sofr", "SOFR · 隔夜利率", "Onchain yield", float(last.get("volumeInBillions") or 0) * 1e9,
+                     [(d["effectiveDate"], d["percentRate"]) for d in days])
+    return r, hist
+
+
+def benchmarks():
+    """The top table: SOFR first, then the yield-bearing stablecoins. Each half may fail on its own."""
+    table, hist, errors = [], [], []
+    try:
+        r, h = sofr()
+        table.append(r)
+        hist += h
+    except Exception as e:
+        errors.append(f"SOFR: {e}")
+        print(f"  skipped SOFR: {e}")
+    try:
+        g, _, h = onchain_yield()
+        table += g["yield"]
+        hist += h
+    except Exception as e:
+        errors.append(f"on-chain: {e}")
+        print(f"  skipped on-chain yield: {e}")
+    if not table:
+        raise RuntimeError("; ".join(errors))
+    return {"yield": table}, [], hist
+
+
 def onchain_yield():
     """sUSDe / syrupUSDC / syrupUSDT: annualised growth of the vault share price, from the chain itself."""
     head = eth_rpc([("eth_getBlockByNumber", ["latest", False])])[0]
@@ -746,7 +786,7 @@ PLATFORM_OF = {"Aave V3": "Aave V3", "Aave V4": "Aave V4", "Morpho": "Morpho", "
 def source_of(protocol):
     if protocol in ("Spark", "Sky"):
         return "Sky"
-    if protocol in ("Ethena", "Maple"):
+    if protocol in ("Ethena", "Maple", "NY Fed"):
         return "Onchain yield"
     if protocol in ("Binance 活期", "OKX 活期"):
         return "CEX savings"
@@ -770,7 +810,7 @@ def main():
                                    ("Morpho", morpho, ["morpho_btc", "morpho_top"]), ("Venus", venus, ["venus"]), ("Sky", sky, ["spark", "sky_savings"]), ("Kamino", kamino, ["kamino"]),
                                    ("Fluid", fluid, ["fluid"]), ("Jupiter Lend", jupiter, ["jupiter"]),
                                    ("Binance VIP Loan", binance, ["binance"]),
-                                   ("Onchain yield", onchain_yield, ["yield"]),
+                                   ("Onchain yield", benchmarks, ["yield"]),
                                    ("CEX savings", cex_savings, ["cex_savings"])):
         try:
             g, t, h = fn()
