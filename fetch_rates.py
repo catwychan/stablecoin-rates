@@ -516,6 +516,8 @@ def binance():
 # (ERC-4626 convertToAssets), read at past blocks through public RPC nodes.
 ETH_RPCS = ("https://rpc.mevblocker.io", "https://eth-mainnet.public.blastapi.io")   # free nodes that still serve old blocks
 YIELD_VAULTS = (   # key, product, issuer, vault contract, underlying, decimals, note
+    ("susds", "sUSDS", "Sky", "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD", "USDS", 18,
+     "Sky Savings Rate（SSR）：存 USDS 得到，利率由 Sky 治理设定"),
     ("susde", "sUSDe", "Ethena", "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497", "USDe", 18,
      "质押 USDe 得到；收益来自永续合约资金费率和储备资产利息"),
     ("syrupusdc", "syrupUSDC", "Maple", "0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b", "USDC", 6,
@@ -523,7 +525,10 @@ YIELD_VAULTS = (   # key, product, issuer, vault contract, underlying, decimals,
     ("syrupusdt", "syrupUSDT", "Maple", "0x356B8d89c1e1239Cbbb9dE4815c39A1474d5BA7D", "USDT", 6,
      "Maple 机构超额抵押贷款的利息；不含 Drips 等链下奖励"),
 )
+VAULT_RATE_CALL = {"susds": "0x03607ceb"}   # vaults whose contract states its own per-second rate: sUSDS ssr()
 YEAR = 365 * 86400
+SOFR_FILE = os.path.join(HERE, "sofr.json")   # daily snapshot kept in the repo (see --sofr), for networks that can't reach the Fed
+SOFR_SITE = "https://catwychan.github.io/stablecoin-rates/"   # the public site's own data files
 
 
 def eth_rpc(calls):
@@ -574,11 +579,50 @@ def sofr():
     return r, hist
 
 
+def sofr_copy(why):
+    """SOFR changes once per business day, so where the New York Fed can't be reached (the Claude cloud sandbox)
+    a day-old copy is just as good: the snapshot in this folder (written by `--sofr`, which a daily GitHub workflow
+    runs and commits), the public site's last refresh, or whatever the previous run left here. Newest one wins."""
+    found = []
+    for name, read in (("sofr.json", lambda: (lambda d: ([d["row"]], d["history"]))(json.load(open(SOFR_FILE)))),
+                       ("the public site", lambda: (get(SOFR_SITE + "rates.json"), get(SOFR_SITE + "history.json"))),
+                       ("the previous run", lambda: (load(OUT), load(HIST)))):
+        try:
+            rows, hist = read()
+            r = [x for x in rows if x.get("id") == "yield:sofr"]
+            h = [x for x in hist if x.get("series") == "yield:sofr" and x.get("date", "") >= START_DAY]
+            if r and h:
+                found.append((max(x["date"] for x in h), name, r[0], h))
+        except Exception as e:
+            why = f"{why}; {name}: {e}"
+    if not found:
+        raise RuntimeError(why)
+    latest, name, r, h = max(found, key=lambda f: f[0])
+    print(f"  SOFR: New York Fed not reachable from here, used the {latest} figure from {name}")
+    return r, h
+
+
+def save_sofr():
+    """`fetch_rates.py --sofr`: refresh only the SOFR snapshot file. Leaves it untouched when there is no newer figure."""
+    r, h = sofr()
+    try:
+        if json.load(open(SOFR_FILE))["history"][-1]["date"] == h[-1]["date"]:
+            print(f"sofr.json already has {h[-1]['date']}")
+            return
+    except Exception:
+        pass
+    json.dump({"row": r, "history": h}, open(SOFR_FILE, "w"), ensure_ascii=False, indent=1)
+    print(f"wrote sofr.json: {r['supply_apy']}% for {h[-1]['date']}")
+
+
 def benchmarks():
     """The top table: SOFR first, then the yield-bearing stablecoins. Each half may fail on its own."""
     table, hist, errors = [], [], []
     try:
-        r, h = sofr()
+        try:
+            r, h = sofr()
+        except Exception as e:
+            r, h = sofr_copy(str(e))
         table.append(r)
         hist += h
     except Exception as e:
@@ -597,7 +641,7 @@ def benchmarks():
 
 
 def onchain_yield():
-    """sUSDe / syrupUSDC / syrupUSDT: annualised growth of the vault share price, from the chain itself."""
+    """sUSDS / sUSDe / syrupUSDC / syrupUSDT: annualised growth of the vault share price, from the chain itself."""
     head = eth_rpc([("eth_getBlockByNumber", ["latest", False])])[0]
     n_now, t_now = int(head["number"], 16), int(head["timestamp"], 16)
     midnight = t_now // 86400 * 86400
@@ -608,7 +652,7 @@ def onchain_yield():
     blocks = [n_now - round((t_now - t) / per_block) for t in targets] + [n_now]
 
     calls = []
-    for b in blocks:                                                       # per day: the block's time + 3 share prices
+    for b in blocks:                                                       # per day: the block's time + each share price
         calls.append(("eth_getBlockByNumber", [hex(b), False]))
         for _, _, _, vault, _, dec, _ in YIELD_VAULTS:                     # convertToAssets(1,000,000 shares)
             calls.append(("eth_call", [{"to": vault, "data": "0x07a2d13a" + hex(10 ** (dec + 6))[2:].rjust(64, "0")}, hex(b)]))
@@ -616,6 +660,9 @@ def onchain_yield():
     step = 1 + len(YIELD_VAULTS)
     ts = [int(res[i * step]["timestamp"], 16) for i in range(len(blocks))]
     totals = eth_rpc([("eth_call", [{"to": v[3], "data": "0x01e1d114"}, hex(n_now)]) for v in YIELD_VAULTS])   # totalAssets()
+    stated = [v for v in YIELD_VAULTS if v[0] in VAULT_RATE_CALL]              # the rate the contract itself is set to
+    stated = dict(zip((v[0] for v in stated),
+                      eth_rpc([("eth_call", [{"to": v[3], "data": VAULT_RATE_CALL[v[0]]}, hex(n_now)]) for v in stated]))) if stated else {}
 
     def growth(px, i, span):
         """Annualised % between point i and the last point at least `span` seconds before it."""
@@ -633,7 +680,8 @@ def onchain_yield():
         if apy7 is None:
             raise RuntimeError(f"no share price history for {product}")
         series = "yield:" + key
-        r = row("yield", issuer, "Ethereum", product, underlying, note, None, apy7, None, None, None,
+        now_apy = ((int(stated[key], 16) / 1e27) ** YEAR - 1) * 100 if key in stated else apy7   # per-second ray -> APY
+        r = row("yield", issuer, "Ethereum", product, underlying, note, None, now_apy, None, None, None,
                 "链上合约（ERC-4626 份额价格）", series=series)
         r["id"] = series
         r["tvl_musd"] = r2(total / 1e6, 1)
@@ -851,4 +899,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    save_sofr() if "--sofr" in sys.argv[1:] else main()

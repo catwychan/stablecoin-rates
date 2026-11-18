@@ -109,11 +109,11 @@
   <header class="lr-head">
     <h1 class="lr-title" id="top">稳定币借贷利率</h1>
     <p class="lr-take">主要市场里，现在借稳定币最便宜的是 <b data-draw="cheap-name">—</b>，年化 <b data-draw="cheap-rate" data-source="rates" data-field="borrow_apy">—</b>；最贵的是 <b data-draw="dear-name">—</b>，年化 <b data-draw="dear-rate" data-source="rates" data-field="borrow_apy">—</b>。</p>
-    <p class="lr-cap">数据抓取时间：<span data-draw="asof" data-source="rates" data-field="fetched_at">—</span>（你的本地时间）。利率均为浮动年化 APY，随资金利用率实时变化。</p>
+    <p class="lr-cap">数据抓取时间：<span data-draw="asof" data-source="rates" data-field="fetched_at">—</span>（美东时间）。利率均为浮动年化 APY，随资金利用率实时变化。</p>
   </header>
 
   <section class="lr-sec" id="yield">
-    <h2 class="lr-h2">基准利率 · SOFR 和收益型稳定币（sUSDe、syrupUSDC、syrupUSDT）</h2>
+    <h2 class="lr-h2">基准利率 · SOFR 和收益型稳定币（sUSDS、sUSDe、syrupUSDC、syrupUSDT）</h2>
     <div class="lr-card lr-scroll">
       <table class="lr-table" data-source="rates" data-row-key="id">
         <thead><tr>
@@ -128,7 +128,6 @@
       </table>
     </div>
     <div class="lr-trends lr-trends-side" data-draw="trends" data-source="history" data-only="yield:"></div>
-    <p class="lr-cap">SOFR 是美元的隔夜基准利率，纽约联储每个工作日早上公布上一个工作日的数字，所以“当前”是最新公布的那一期（周末和假日没有新数字）；30 日和 90 日是纽约联储公布的复利平均。它是不计复利、按 360 天计的年化。sUSDe、syrupUSDC、syrupUSDT 的数字不来自任何网站的接口，而是直接读以太坊上的金库合约：每一份能换回多少稳定币（份额价格），把这个价格在过去 7 天（“当前”一栏）、30 天、90 天里的涨幅折成年化。所以它是持有人实际拿到的收益，不含 Maple 的 Drips 等链下发放的额外奖励。小图里 SOFR 每个工作日一个点，其余每天一个点，是截至当天的 7 日年化。</p>
   </section>
 
   <section class="lr-sec" id="compare">
@@ -379,7 +378,7 @@
     <p class="lr-cap">上面两张表格里的每个市场一张小图，Binance VIP Loan 排在最前，其余按借出体量从多到少排列；另外加一张 Sky 储蓄利率，它是存款利率，不是借款利率。SOFR、收益型稳定币和交易所活期的走势放在上面各自的表格下面。每天一个点，是当天的平均借款年化利率；右上角是最近一天的数字，虚线是 90 天平均。每张小图的纵轴都从 0 到自己的最高点，所以不同小图之间要看数字而不是看线的高低。上线不足 90 天的市场曲线会短一些。Jupiter Lend 的接口不提供历史利率，所以没有它的走势图。</p>
 </section>
 
-  <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API，Binance VIP Loan 和币安活期来自币安官网公布的利率，OKX 活期来自 OKX 官方公开 API，sUSDe、syrupUSDC、syrupUSDT 的收益直接从以太坊链上的合约读取，SOFR 来自纽约联储。这是定时抓取的快照，不是逐块实时数据。</p>
+  <p class="lr-cap">数据来源：Aave V3 和 V4 来自 Aave 官方 API，Spark 和 Sky 来自 Block Analitica（两者官网用的数据方），Sky 储蓄利率的历史来自 DefiLlama，Morpho、Venus、Kamino、Fluid 和 Jupiter Lend 来自各自的官方 API，Binance VIP Loan 和币安活期来自币安官网公布的利率，OKX 活期来自 OKX 官方公开 API，sUSDS、sUSDe、syrupUSDC、syrupUSDT 的收益直接从以太坊链上的合约读取，SOFR 来自纽约联储。这是定时抓取的快照，不是逐块实时数据。</p>
 </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -447,7 +446,13 @@
   dash.draw('asof', (el) => {
     const { rows } = rates();
     const t = rows.map((r) => r.fetched_at).filter(Boolean).sort().pop();
-    el.textContent = t ? d3.timeFormat('%Y-%m-%d %H:%M')(new Date(t)) : '—';
+    if (!t) { el.textContent = '—'; return; }
+    // always US Eastern time, whatever the viewer's own time zone is
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hourCycle: 'h23',
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    }).formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+    el.textContent = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
   });
 
   dash.draw('rows', (tbody) => {
