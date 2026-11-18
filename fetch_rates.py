@@ -517,13 +517,13 @@ def binance():
 ETH_RPCS = ("https://rpc.mevblocker.io", "https://eth-mainnet.public.blastapi.io")   # free nodes that still serve old blocks
 YIELD_VAULTS = (   # key, product, issuer, vault contract, underlying, decimals, note
     ("susds", "sUSDS", "Sky", "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD", "USDS", 18,
-     "Sky Savings Rate（SSR）：存 USDS 得到，利率由 Sky 治理设定"),
+     "Sky Savings Rate（SSR）现行利率；存 USDS 得到，由 Sky 治理设定"),
     ("susde", "sUSDe", "Ethena", "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497", "USDe", 18,
-     "质押 USDe 得到；收益来自永续合约资金费率和储备资产利息"),
+     "近 30 日年化；质押 USDe 得到，收益来自资金费率和储备资产利息"),
     ("syrupusdc", "syrupUSDC", "Maple", "0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b", "USDC", 6,
-     "Maple 机构超额抵押贷款的利息；不含 Drips 等链下奖励"),
+     "近 30 日年化；Maple 机构超额抵押贷款的利息，不含 Drips 等链下奖励"),
     ("syrupusdt", "syrupUSDT", "Maple", "0x356B8d89c1e1239Cbbb9dE4815c39A1474d5BA7D", "USDT", 6,
-     "Maple 机构超额抵押贷款的利息；不含 Drips 等链下奖励"),
+     "近 30 日年化；Maple 机构超额抵押贷款的利息，不含 Drips 等链下奖励"),
 )
 VAULT_RATE_CALL = {"susds": "0x03607ceb"}   # vaults whose contract states its own per-second rate: sUSDS ssr()
 YEAR = 365 * 86400
@@ -645,7 +645,7 @@ def onchain_yield():
     head = eth_rpc([("eth_getBlockByNumber", ["latest", False])])[0]
     n_now, t_now = int(head["number"], 16), int(head["timestamp"], 16)
     midnight = t_now // 86400 * 86400
-    targets = [midnight - 86400 * i for i in range(DAYS + 7, -1, -1)]      # 00:00 UTC of each day, oldest first
+    targets = [midnight - 86400 * i for i in range(DAYS + 30, -1, -1)]      # 00:00 UTC of each day, oldest first
     guess = n_now - int((t_now - targets[0]) / 12.05)                      # measure the real seconds per block
     t_guess = int(eth_rpc([("eth_getBlockByNumber", [hex(guess), False])])[0]["timestamp"], 16)
     per_block = (t_now - t_guess) / (n_now - guess)
@@ -676,21 +676,21 @@ def onchain_yield():
         px = [int(res[i * step + 1 + n], 16) for i in range(len(blocks))]
         total = int(totals[n], 16) / 10 ** dec
         last = len(px) - 1
-        apy7 = growth(px, last, 7 * 86400)
-        if apy7 is None:
+        apy30 = growth(px, last, 30 * 86400)      # the headline figure: she asked for the last 30 days, not 7
+        if apy30 is None:
             raise RuntimeError(f"no share price history for {product}")
         series = "yield:" + key
-        now_apy = ((int(stated[key], 16) / 1e27) ** YEAR - 1) * 100 if key in stated else apy7   # per-second ray -> APY
+        now_apy = ((int(stated[key], 16) / 1e27) ** YEAR - 1) * 100 if key in stated else apy30   # per-second ray -> APY
         r = row("yield", issuer, "Ethereum", product, underlying, note, None, now_apy, None, None, None,
                 "链上合约（ERC-4626 份额价格）", series=series)
         r["id"] = series
         r["tvl_musd"] = r2(total / 1e6, 1)
-        r["apy_30d"] = r2(growth(px, last, 30 * 86400))
+        r["apy_30d"] = r2(apy30)
         r["apy_90d"] = r2(growth(px, last, 90 * 86400))
         r["share_price"] = r2(px[last] / 10 ** (dec + 6), 4)
         table.append(r)
-        pts = [(day(ts[i] - 43200) if i < last else day(ts[i]), growth(px, i, 7 * 86400)) for i in range(len(px))]
-        hist += hist_rows(series, f"{product} · 7 日年化", "Onchain yield", total, pts)
+        pts = [(day(ts[i] - 43200) if i < last else day(ts[i]), growth(px, i, 30 * 86400)) for i in range(len(px))]
+        hist += hist_rows(series, f"{product} · 30 日年化", "Onchain yield", total, pts)
     table.sort(key=lambda r: -(r["tvl_musd"] or 0))
     return {"yield": table}, [], hist
 

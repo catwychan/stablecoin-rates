@@ -108,7 +108,6 @@
 <div class="lr">
   <header class="lr-head">
     <h1 class="lr-title" id="top">稳定币借贷利率</h1>
-    <p class="lr-take">主要市场里，现在借稳定币最便宜的是 <b data-draw="cheap-name">—</b>，年化 <b data-draw="cheap-rate" data-source="rates" data-field="borrow_apy">—</b>；最贵的是 <b data-draw="dear-name">—</b>，年化 <b data-draw="dear-rate" data-source="rates" data-field="borrow_apy">—</b>。</p>
     <p class="lr-cap">数据抓取时间：<span data-draw="asof" data-source="rates" data-field="fetched_at">—</span>（美东时间）。利率均为浮动年化 APY，随资金利用率实时变化。</p>
   </header>
 
@@ -119,8 +118,7 @@
         <thead><tr>
           <th data-field="market">产品</th>
           <th data-field="supply_apy">当前年化</th>
-          <th data-field="apy_30d">30 日</th>
-          <th data-field="apy_90d">90 日</th>
+          <th data-field="apy_90d">近 90 日</th>
           <th data-field="tvl_musd">规模（百万美元）</th>
           <th data-field="collateral" class="lr-text">说明</th>
         </tr></thead>
@@ -132,6 +130,7 @@
 
   <section class="lr-sec" id="compare">
     <h2 class="lr-h2">可以用 BTC 抵押借的稳定币市场，币安在前，其余按借出体量从多到少</h2>
+    <p class="lr-take">主要市场里，现在借稳定币最便宜的是 <b data-draw="cheap-name">—</b>，年化 <b data-draw="cheap-rate" data-source="rates" data-field="borrow_apy">—</b>；最贵的是 <b data-draw="dear-name">—</b>，年化 <b data-draw="dear-rate" data-source="rates" data-field="borrow_apy">—</b>。</p>
     <div class="lr-card lr-scroll">
       <table class="lr-table lr-vol" data-source="rates" data-row-key="id">
         <thead><tr>
