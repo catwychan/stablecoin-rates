@@ -40,7 +40,8 @@ UA = {"user-agent": "curl/8.4", "accept": "application/json"}
 
 STABLES = {"USDT", "USDC", "DAI", "USDS", "GHO", "PYUSD", "RLUSD", "USDE", "USDG", "FRXUSD", "USD1",
            "FDUSD", "USDTB", "LUSD", "CRVUSD", "USD0", "USDA", "AUSD", "USDF", "DOLA", "FRAX", "USDP",
-           "USR", "EUSD", "BOLD", "MUSD", "USDO", "USDT0", "USD₮0", "USD₮", "USDX", "USDD", "USDAT", "APXUSD", "JUPUSD"}
+           "USR", "EUSD", "BOLD", "MUSD", "USDO", "USDT0", "USD₮0", "USD₮", "USDX", "USDD", "USDAT", "APXUSD", "JUPUSD",
+           "U"}   # U = United Stables (Venus, BNB Chain)
 BTC_COLLATERAL = {"WBTC", "CBBTC", "KBTC", "LBTC", "TBTC", "XBTC", "ZBTC", "BTC"}
 MIN_TABLE_USD = 1_000_000     # a market shows in a platform table above this borrowed amount
 MIN_TOTAL_USD = 10_000_000    # a pool / hub shows in the volume table above this
