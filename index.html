@@ -513,7 +513,7 @@
     tbody.replaceChildren(...h.map((r) => {
       const tr = document.createElement('tr');
       tr.dataset.key = encodeURIComponent(r.id);
-      if (COMPARE.some(([id]) => id === r.series)) tr.className = 'lr-charted';   // the markets drawn in the 90-day chart
+      if (COMPARE.some(([id]) => id === r.series) || BOLD_ROWS.includes(r.series)) tr.className = 'lr-charted';   // the markets drawn in the 90-day chart, plus the ones she asked to have bold
       const amt = document.createElement('td');
       amt.className = 'lr-amt';
       const inner = document.createElement('div');
@@ -541,6 +541,7 @@
   });
 
   // The markets drawn in the 90-day comparison chart, in legend order (chosen by the dashboard's owner).
+  const BOLD_ROWS = ['venus:u'];   // bold in the first table without being a line in the chart
   const COMPARE = [
     // [series id, legend name, bold?, colour]. Each line has its own fixed colour so no two look alike.
     ['binance:usdt', 'Binance VIP Loan · USDT', true, '#2563eb'],     // bold: blue
